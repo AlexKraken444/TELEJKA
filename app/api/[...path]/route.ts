@@ -31,6 +31,40 @@ const json = (value: unknown, status = 200) =>
     status,
     headers: { "Cache-Control": "no-store" },
   });
+const SHARED_BACKEND = "https://1234news.vercel.app/api/telejka";
+async function proxyToSharedBackend(req: NextRequest, path: string[]) {
+  const headers = new Headers();
+  for (const name of ["content-type"]) {
+    const value = req.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  const session = req.cookies.get(COOKIE)?.value;
+  if (session && /^[a-f0-9]{64}$/.test(session)) {
+    headers.set("cookie", `${COOKIE}=${session}`);
+  }
+  const target = `${SHARED_BACKEND}/${path.map(encodeURIComponent).join("/")}${req.nextUrl.search}`;
+  const upstream = await fetch(target, {
+    method: req.method,
+    headers,
+    body:
+      req.method === "GET" || req.method === "HEAD"
+        ? undefined
+        : await req.arrayBuffer(),
+    cache: "no-store",
+    redirect: "error",
+    signal: AbortSignal.timeout(20000),
+  });
+  const responseHeaders = new Headers({
+    "Cache-Control": "no-store",
+    "Content-Type": upstream.headers.get("content-type") || "application/json",
+  });
+  const setCookie = upstream.headers.get("set-cookie");
+  if (setCookie?.startsWith(`${COOKIE}=`)) responseHeaders.set("set-cookie", setCookie);
+  return new NextResponse(upstream.body, {
+    status: upstream.status,
+    headers: responseHeaders,
+  });
+}
 async function rateLimit(key: string, max: number, seconds: number) {
   const [row] =
     await db()`INSERT INTO rate_limits(key, count, resets_at) VALUES (${key}, 1, ${new Date(Date.now() + seconds * 1000)}) ON CONFLICT (key) DO UPDATE SET count = CASE WHEN rate_limits.resets_at < now() THEN 1 ELSE rate_limits.count + 1 END, resets_at = CASE WHEN rate_limits.resets_at < now() THEN EXCLUDED.resets_at ELSE rate_limits.resets_at END RETURNING count`;
@@ -68,11 +102,7 @@ async function handle(
       if (origin && origin !== req.nextUrl.origin)
         throw new ApiError(403, "Недопустимый источник запроса.");
     }
-    if (!databaseUrl())
-      throw new ApiError(
-        503,
-        "Сервер ещё не настроен: подключите PostgreSQL через DATABASE_URL.",
-      );
+    if (!databaseUrl()) return proxyToSharedBackend(req, path);
     let input: Record<string, unknown> = {};
     if (writing && req.method !== "DELETE") {
       const text = await req.text();
