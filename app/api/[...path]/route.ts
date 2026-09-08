@@ -4,7 +4,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import sharp from "sharp";
 import { createHash, randomInt } from "node:crypto";
-import { db } from "@/lib/db";
+import { db, databaseUrl } from "@/lib/db";
 import { COOKIE, createSession, currentUser, hashToken } from "@/lib/auth";
 import {
   registerSchema,
@@ -68,7 +68,7 @@ async function handle(
       if (origin && origin !== req.nextUrl.origin)
         throw new ApiError(403, "Недопустимый источник запроса.");
     }
-    if (!process.env.DATABASE_URL)
+    if (!databaseUrl())
       throw new ApiError(
         503,
         "Сервер ещё не настроен: подключите PostgreSQL через DATABASE_URL.",

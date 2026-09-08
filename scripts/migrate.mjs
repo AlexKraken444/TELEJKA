@@ -1,8 +1,9 @@
 import postgres from "postgres";
 import { readFile } from "node:fs/promises";
-if (!process.env.DATABASE_URL)
+const databaseUrl = process.env.DATABASE_URL?.trim() || process.env.POSTGRES_URL?.trim();
+if (!databaseUrl)
   throw new Error("Добавьте DATABASE_URL в .env.local или окружение.");
-const sql = postgres(process.env.DATABASE_URL, { max: 1 });
+const sql = postgres(databaseUrl, { max: 1 });
 try {
   const schema = await readFile(
     new URL("../db/schema.sql", import.meta.url),
