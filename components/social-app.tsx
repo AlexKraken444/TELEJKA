@@ -22,7 +22,7 @@ import {
   Camera,
 } from "lucide-react";
 import type { User, Post, Comment, Chat, Message } from "@/lib/types";
-import { api, Avatar, Logo, errorText, readAvatar, time } from "./shared";
+import { api, Avatar, Logo, VerifiedBadge, errorText, readAvatar, time } from "./shared";
 type Tab = "feed" | "chats" | "people" | "profile";
 export function SocialApp({ initialUser }: { initialUser: User }) {
   const [user, setUser] = useState(initialUser),
@@ -105,7 +105,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           <button className="user-switch" onClick={() => setTab("profile")}>
             <Avatar user={user} size={38} />
             <span>
-              <strong>{user.name}</strong>
+              <strong>{user.name}<VerifiedBadge userId={user.id}/></strong>
               <small>Это ты, привет!</small>
             </span>
             <ChevronRight size={16} />
@@ -216,7 +216,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             >
               <Avatar user={person} size={38} />
               <span>
-                <strong>{person.name}</strong>
+                <strong>{person.name}<VerifiedBadge userId={person.id}/></strong>
                 <small>{person.bio || "Уже в TELEJKA"}</small>
               </span>
               <Plus size={16} />
@@ -297,7 +297,7 @@ function Person({ person, onChat }: { person: User; onChat: () => void }) {
     <div className="person">
       <Avatar user={person} />
       <div>
-        <strong>{person.name}</strong>
+        <strong>{person.name}<VerifiedBadge userId={person.id}/></strong>
         <p>{person.bio || "Пока без описания — познакомитесь в разговоре"}</p>
       </div>
       <button className="secondary" onClick={onChat}>
@@ -537,6 +537,7 @@ function PostCard({
             onClick={() => post.author.id !== user.id && onPerson(post.author)}
           >
             {post.author.name}
+            <VerifiedBadge userId={post.author.id}/>
           </button>
           {post.author.id === user.id && <span className="you-tag">ты</span>}
           <time dateTime={post.created_at}>{time(post.created_at)}</time>
@@ -591,7 +592,7 @@ function PostCard({
               <div className="comment" key={c.id}>
                 <Avatar user={c.author} size={30} />
                 <div>
-                  <strong>{c.author.name}</strong>
+                  <strong>{c.author.name}<VerifiedBadge userId={c.author.id}/></strong>
                   <p>{c.body}</p>
                   <small>{time(c.created_at)}</small>
                 </div>
@@ -858,7 +859,7 @@ function Chats({
                   />
                 )}
                 <span>
-                  <strong>{chatName(chat, user.id)}</strong>
+                  <strong>{chatName(chat, user.id)}{!chat.is_group && <VerifiedBadge userId={chat.participants.find(p => p.id !== user.id)?.id}/>}</strong>
                   <small>{chat.last_body || "Начни разговор"}</small>
                 </span>
                 <ChevronRight size={15} />
@@ -1018,7 +1019,7 @@ function Conversation({
           <ArrowLeft size={20} />
         </button>
         <div>
-          <strong>{chatName(chat, user.id)}</strong>
+          <strong>{chatName(chat, user.id)}{!chat.is_group && <VerifiedBadge userId={chat.participants.find(p => p.id !== user.id)?.id}/>}</strong>
           <small>
             {chat.is_group
               ? `${chat.participants.length} участников`
@@ -1039,6 +1040,7 @@ function Conversation({
             <div key={p.id}>
               <Avatar user={p} size={25} />
               {p.name}
+              <VerifiedBadge userId={p.id}/>
               {p.id === user.id && " (ты)"}
             </div>
           ))}
@@ -1073,7 +1075,7 @@ function Conversation({
             className={`message ${m.user_id === user.id ? "own" : ""}`}
           >
             {chat.is_group && m.user_id !== user.id && (
-              <strong>{m.author.name}</strong>
+              <strong>{m.author.name}<VerifiedBadge userId={m.author.id}/></strong>
             )}
             <p>{m.body}</p>
             <time title={time(m.created_at)}>
@@ -1258,7 +1260,7 @@ function NewChat({
               }
             >
               <Avatar user={p} size={36} />
-              <strong>{p.name}</strong>
+              <strong>{p.name}<VerifiedBadge userId={p.id}/></strong>
               <span
                 className={`checkbox ${selected.some((x) => x.id === p.id) ? "checked" : ""}`}
               >

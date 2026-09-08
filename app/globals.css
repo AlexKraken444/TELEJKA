@@ -8,6 +8,7 @@
   --deep: #293722;
   --font: "Golos Text", Arial, sans-serif;
 }
+.verified-badge { display: inline-flex; vertical-align: middle; margin-left: 4px; flex-shrink: 0; line-height: 1; }
 * {
   box-sizing: border-box;
 }

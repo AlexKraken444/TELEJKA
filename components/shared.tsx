@@ -1,5 +1,10 @@
 "use client";
 import type { User } from "@/lib/types";
+import { BadgeCheck } from 'lucide-react';
+export function VerifiedBadge({ userId }: { userId?: string }) {
+  if (userId !== '5158ea3a-fcb5-44cb-8f29-362b94aa1744') return null;
+  return <span className="verified-badge" role="img" aria-label="Подтверждённый аккаунт" title="Подтверждённый аккаунт"><BadgeCheck size={16} fill="#398ce8" stroke="white" strokeWidth={2}/></span>;
+}
 export async function api<T>(
   path: string,
   method = "GET",
