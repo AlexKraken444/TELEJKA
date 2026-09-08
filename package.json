@@ -1,0 +1,37 @@
+{
+  "name": "telejka",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "db:local": "node scripts/local-db.mjs"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "lucide-react": "1.42.0",
+    "next": "16.3.4",
+    "postgres": "^3.4.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sharp": "^0.35.4",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "latest",
+    "@electric-sql/pglite-socket": "^0.2.11",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "prettier": "^3.9.6",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}
