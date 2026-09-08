@@ -212,7 +212,6 @@ export function AuthScreen() {
           </form>
         </div>
         <footer className="auth-bottom">
-          <span>© {new Date().getFullYear()} TELEJKA</span>
           <span>
             Будь собой. Будь на связи. <span className="live-dot" />
           </span>

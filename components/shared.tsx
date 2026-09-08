@@ -22,6 +22,9 @@ export async function api<T>(
       window.location.assign("/register");
     throw new Error(body.error || "Не удалось выполнить запрос.");
   }
+  if ((path === "posts" && method === "POST") || (/^posts\/[^/]+$/.test(path) && method === "DELETE")) {
+    window.dispatchEvent(new Event("telejka-posts-changed"));
+  }
   return body;
 }
 export function Avatar({

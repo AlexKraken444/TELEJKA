@@ -1,4 +1,5 @@
 "use client";
+import { PopularHashtags } from "./popular-hashtags";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowDown,
@@ -204,6 +205,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
               ТВОЯ TELEJKA <ArrowUpRight size={13} />
             </span>
           </div>
+          <PopularHashtags />
           <div className="right-title">
             <h3>Новые лица</h3>
             <Users size={17} />
@@ -240,11 +242,6 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
               <p>Будь внимателен к людям по ту сторону экрана.</p>
             </div>
           </div>
-          <footer className="right-footer">
-            TELEJKA © {new Date().getFullYear()}
-            <br />
-            Сделано для разговоров.
-          </footer>
         </aside>
       )}
     </div>
@@ -271,7 +268,7 @@ function Header({
         </h1>
         <p>{subtitle}</p>
       </div>
-      {action ?? <span className="header-symbol">✳</span>}
+      {action}
     </header>
   );
 }

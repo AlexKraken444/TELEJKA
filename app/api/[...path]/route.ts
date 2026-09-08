@@ -195,6 +195,11 @@ async function handle(
         await sql`SELECT id, name, bio, avatar, color FROM users WHERE id <> ${user.id} AND position(${nameKey(search)} in name_key) > 0 ORDER BY created_at DESC LIMIT 40`,
       );
     }
+    if (route === "hashtags" && req.method === "GET") {
+      return json(await sql`SELECT lower(matches[2]) AS tag, count(DISTINCT p.id)::int AS posts
+        FROM posts p CROSS JOIN LATERAL regexp_matches(p.body, '(^|[^[:alnum:]_])#([[:alnum:]_]+)', 'g') AS matches
+        GROUP BY lower(matches[2]) ORDER BY posts DESC, tag ASC LIMIT 10`);
+    }
     if (route === "posts" && req.method === "GET") {
       const offset = Math.min(
         100000,

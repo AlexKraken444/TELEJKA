@@ -131,10 +131,13 @@ test(
     const post = await request(
       "posts",
       "POST",
-      { body: "Привет, TELEJKA!" },
+      { body: "Привет, TELEJKA! #Привет #привет #NextJS" },
       alice.cookie,
     );
     assert.equal(post.status, 201);
+    const trends = await request('hashtags', 'GET', undefined, alice.cookie);
+    assert.equal(trends.status, 200);
+    assert.deepEqual(trends.body, [{tag: 'nextjs', posts: 1}, {tag: 'привет', posts: 1}]);
     assert.equal(
       (
         await request(
@@ -291,6 +294,7 @@ test(
         .status,
       200,
     );
+    assert.deepEqual((await request('hashtags', 'GET', undefined, freshCookie)).body, []);
     assert.equal(
       (
         await db.query<{ count: number }>(
