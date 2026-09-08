@@ -4,7 +4,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import sharp from "sharp";
 import { createHash, randomInt } from "node:crypto";
-import { db, databaseUrl } from "@/lib/db";
+import { db, databaseUrl, ensureDatabase } from "@/lib/db";
 import { COOKIE, createSession, currentUser, hashToken } from "@/lib/auth";
 import {
   registerSchema,
@@ -84,6 +84,7 @@ async function handle(
         throw new ApiError(400, "Неверный формат запроса.");
       }
     }
+    await ensureDatabase();
     const sql = db();
     if (route === "auth/register" && req.method === "POST") {
       const ip =

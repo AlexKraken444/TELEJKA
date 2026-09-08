@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 const origin = "http://localhost:3101";
@@ -10,9 +9,6 @@ test(
   { timeout: 120000 },
   async (t) => {
     const db = await PGlite.create();
-    await db.exec(
-      await readFile(new URL("../db/schema.sql", import.meta.url), "utf8"),
-    );
     const socket = new PGLiteSocketServer({
       db,
       port: 5434,
@@ -26,7 +22,10 @@ test(
       {
         env: {
           ...process.env,
-          DATABASE_URL:
+          DATABASE_URL: "",
+          POSTGRES_URL: "",
+          POSTGRES_URL_NON_POOLING: "",
+          NEON_DATABASE_URL:
             "postgresql://postgres:postgres@127.0.0.1:5434/postgres",
           NODE_ENV: "production",
         },

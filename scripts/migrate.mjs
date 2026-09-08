@@ -1,6 +1,7 @@
 import postgres from "postgres";
 import { readFile } from "node:fs/promises";
-const databaseUrl = process.env.DATABASE_URL?.trim() || process.env.POSTGRES_URL?.trim();
+import { getDatabaseUrl } from "../lib/database-url.ts";
+const databaseUrl = getDatabaseUrl();
 if (!databaseUrl)
   throw new Error("Добавьте DATABASE_URL в .env.local или окружение.");
 const sql = postgres(databaseUrl, { max: 1 });
