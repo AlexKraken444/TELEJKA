@@ -1019,7 +1019,7 @@ function Chats({
                       />
                     )}
                   </strong>
-                  <small>{chat.last_body || "Нет сообщений"}</small>
+                  <small>{chat.last_body === "🔒 Зашифрованное сообщение" ? "сообщение" : chat.last_body || "Нет сообщений"}</small>
                 </span>
                 <ChevronRight size={15} />
               </button>
