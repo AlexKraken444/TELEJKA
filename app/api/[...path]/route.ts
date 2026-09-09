@@ -16,6 +16,11 @@ import {
   passwordSchema,
 } from "@/lib/validation";
 
+import {
+  featureApi,
+  FeatureError,
+  attachmentMetadata,
+} from "@/lib/feature-api";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 class ApiError extends Error {
@@ -29,9 +34,41 @@ class ApiError extends Error {
 const json = (value: unknown, status = 200) =>
   NextResponse.json(value, {
     status,
-    headers: { "Cache-Control": "no-store" },
+    headers: {
+      "Cache-Control": "no-store",
+      ...(status === 429 ? { "Retry-After": "60" } : {}),
+    },
   });
 const SHARED_BACKEND = "https://1234news.vercel.app/api/telejka";
+async function boundedBody(req: NextRequest) {
+  if (Number(req.headers.get("content-length")) > 450000)
+    throw new ApiError(413, "Запрос слишком большой.");
+  const reader = req.body?.getReader();
+  if (!reader) return new Uint8Array();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > 450000) {
+        await reader.cancel();
+        throw new ApiError(413, "Запрос слишком большой.");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const c of chunks) {
+    bytes.set(c, offset);
+    offset += c.length;
+  }
+  return bytes;
+}
 async function proxyToSharedBackend(req: NextRequest, path: string[]) {
   const headers = new Headers();
   for (const name of ["content-type"]) {
@@ -49,7 +86,7 @@ async function proxyToSharedBackend(req: NextRequest, path: string[]) {
     body:
       req.method === "GET" || req.method === "HEAD"
         ? undefined
-        : await req.arrayBuffer(),
+        : await boundedBody(req),
     cache: "no-store",
     redirect: "error",
     signal: AbortSignal.timeout(20000),
@@ -59,7 +96,10 @@ async function proxyToSharedBackend(req: NextRequest, path: string[]) {
     "Content-Type": upstream.headers.get("content-type") || "application/json",
   });
   const setCookie = upstream.headers.get("set-cookie");
-  if (setCookie?.startsWith(`${COOKIE}=`)) responseHeaders.set("set-cookie", setCookie);
+  const retry = upstream.headers.get("retry-after");
+  if (retry) responseHeaders.set("retry-after", retry);
+  if (setCookie?.startsWith(`${COOKIE}=`))
+    responseHeaders.set("set-cookie", setCookie);
   return new NextResponse(upstream.body, {
     status: upstream.status,
     headers: responseHeaders,
@@ -102,10 +142,10 @@ async function handle(
       if (origin && origin !== req.nextUrl.origin)
         throw new ApiError(403, "Недопустимый источник запроса.");
     }
-    if (!databaseUrl()) return proxyToSharedBackend(req, path);
+    if (!databaseUrl()) return await proxyToSharedBackend(req, path);
     let input: Record<string, unknown> = {};
     if (writing && req.method !== "DELETE") {
-      const text = await req.text();
+      const text = new TextDecoder().decode(await boundedBody(req));
       if (text.length > 450000)
         throw new ApiError(413, "Файл слишком большой.");
       try {
@@ -133,8 +173,12 @@ async function handle(
         "#bce7dc",
         "#f5dc95",
       ];
-      const [user] =
-        await sql`INSERT INTO users(name, name_key, password_hash, bio, avatar, color) VALUES (${data.name}, ${nameKey(data.name)}, ${hash}, ${data.bio}, ${avatar}, ${colors[randomInt(colors.length)]}) RETURNING id, name, bio, avatar, color`;
+      const user = await sql.begin(async (tx) => {
+        const [created] =
+          await tx`INSERT INTO users(name,name_key,bio,avatar,color) VALUES (${data.name},${nameKey(data.name)},${data.bio},${avatar},${colors[randomInt(colors.length)]}) RETURNING id,name,bio,avatar,color`;
+        await tx`INSERT INTO telejka_auth.credentials(user_id,password_hash) VALUES (${created.id},${hash})`;
+        return created;
+      });
       await createSession(user.id);
       return json(user, 201);
     }
@@ -152,7 +196,7 @@ async function handle(
         900,
       );
       const [user] =
-        await sql`SELECT * FROM users WHERE name_key = ${nameKey(name)}`;
+        await sql`SELECT u.*,c.password_hash AS password_hash FROM users u JOIN telejka_auth.credentials c ON c.user_id=u.id WHERE u.name_key = ${nameKey(name)}`;
       const valid = await bcrypt.compare(
         password,
         user?.password_hash ??
@@ -170,7 +214,13 @@ async function handle(
     }
     const user = await currentUser();
     if (!user) throw new ApiError(401, "Войдите в аккаунт.");
-    if (writing) await rateLimit(`write:${user.id}`, 120, 60);
+    await rateLimit(
+      `${path[0] === "uploads" ? "upload" : writing ? "write" : "read"}:${user.id}`,
+      path[0] === "uploads" ? 1200 : writing ? 120 : 360,
+      60,
+    );
+    const feature = await featureApi(req, path, input, user.id);
+    if (feature) return feature;
     if (route === "auth/logout" && req.method === "POST") {
       const jar = await cookies();
       const token = jar.get(COOKIE)?.value;
@@ -196,9 +246,11 @@ async function handle(
       );
     }
     if (route === "hashtags" && req.method === "GET") {
-      return json(await sql`SELECT lower(matches[2]) AS tag, count(DISTINCT p.id)::int AS posts
+      return json(
+        await sql`SELECT lower(matches[2]) AS tag, count(DISTINCT p.id)::int AS posts
         FROM posts p CROSS JOIN LATERAL regexp_matches(p.body, '(^|[^[:alnum:]_])#([[:alnum:]_]+)', 'g') AS matches
-        GROUP BY lower(matches[2]) ORDER BY posts DESC, tag ASC LIMIT 10`);
+        GROUP BY lower(matches[2]) ORDER BY posts DESC, tag ASC LIMIT 10`,
+      );
     }
     if (route === "posts" && req.method === "GET") {
       const offset = Math.min(
@@ -211,17 +263,39 @@ async function handle(
       );
     }
     if (route === "posts" && req.method === "POST") {
-      const body = bodySchema(2000).parse(input.body);
-      const [post] =
-        await sql`INSERT INTO posts(user_id, body) VALUES (${user.id}, ${body}) RETURNING id`;
+      const body = z
+        .string()
+        .trim()
+        .max(2000)
+        .parse(input.body ?? "");
+      const attachments = await attachmentMetadata(
+        input.attachmentIds,
+        user.id,
+      );
+      if (!body && !attachments.length)
+        throw new ApiError(400, "Добавьте текст, фото или видео.");
+      const post = await sql.begin(async (tx) => {
+        const [created] =
+          await tx`INSERT INTO posts(user_id,body,attachments) VALUES (${user.id},${body},${tx.json(attachments)}) RETURNING id`;
+        if (attachments.length) {
+          const claimed=await tx`UPDATE uploads SET published=true WHERE id IN ${tx(attachments.map((a) => a.id))} AND published=false RETURNING id`;
+          if(claimed.length!==attachments.length)throw new ApiError(409,'Вложение уже опубликовано.');
+        }
+        return created;
+      });
       return json(post, 201);
     }
     if (path[0] === "posts" && path[1]) {
       const id = idSchema.parse(path[1]);
       if (path.length === 2 && req.method === "DELETE") {
-        const deleted =
-          await sql`DELETE FROM posts WHERE id = ${id} AND user_id = ${user.id} RETURNING id`;
-        if (!deleted.length) throw new ApiError(404, "Пост не найден.");
+        await sql.begin(async tx=>{
+          const [post]=await tx`SELECT attachments FROM posts WHERE id=${id} AND user_id=${user.id} FOR UPDATE`;
+          if(!post)throw new ApiError(404,'Пост не найден.');
+          const comments=await tx`SELECT attachments FROM comments WHERE post_id=${id}`;
+          const ids=[post,...comments].flatMap(r=>(r.attachments as {id:string}[]).map(a=>a.id));
+          await tx`DELETE FROM posts WHERE id=${id}`;
+          if(ids.length)await tx`DELETE FROM uploads WHERE id IN ${tx(ids)} AND chat_id IS NULL`;
+        });
         return json({ ok: true });
       }
       const [post] = await sql`SELECT id FROM posts WHERE id = ${id}`;
@@ -240,12 +314,28 @@ async function handle(
           Number(req.nextUrl.searchParams.get("offset")) || 0,
         );
         return json(
-          await sql`SELECT c.id, c.body, c.created_at, json_build_object('id',u.id,'name',u.name,'avatar',u.avatar,'color',u.color) AS author FROM comments c JOIN users u ON u.id = c.user_id WHERE c.post_id = ${id} ORDER BY c.created_at, c.id LIMIT 50 OFFSET ${offset}`,
+          await sql`SELECT c.id, c.body, c.attachments, c.created_at, json_build_object('id',u.id,'name',u.name,'avatar',u.avatar,'color',u.color) AS author FROM comments c JOIN users u ON u.id = c.user_id WHERE c.post_id = ${id} ORDER BY c.created_at, c.id LIMIT 50 OFFSET ${offset}`,
         );
       }
       if (path[2] === "comments" && req.method === "POST") {
-        const body = bodySchema(1000).parse(input.body);
-        await sql`INSERT INTO comments(post_id, user_id, body) VALUES (${id}, ${user.id}, ${body})`;
+        const body = z
+          .string()
+          .trim()
+          .max(1000)
+          .parse(input.body ?? "");
+        const attachments = await attachmentMetadata(
+          input.attachmentIds,
+          user.id,
+        );
+        if (!body && !attachments.length)
+          throw new ApiError(400, "Добавьте текст, фото или видео.");
+        await sql.begin(async (tx) => {
+          await tx`INSERT INTO comments(post_id,user_id,body,attachments) VALUES (${id},${user.id},${body},${tx.json(attachments)})`;
+          if (attachments.length) {
+            const claimed=await tx`UPDATE uploads SET published=true WHERE id IN ${tx(attachments.map((a) => a.id))} AND published=false RETURNING id`;
+            if(claimed.length!==attachments.length)throw new ApiError(409,'Вложение уже опубликовано.');
+          }
+        });
         return json({ ok: true }, 201);
       }
     }
@@ -291,14 +381,11 @@ async function handle(
           ? z.iso.datetime({ offset: true }).parse(before)
           : new Date(Date.now() + 60000).toISOString();
         const rows =
-          await sql`SELECT m.id, m.user_id, m.body, m.created_at, json_build_object('id',u.id,'name',u.name,'avatar',u.avatar,'color',u.color) AS author FROM messages m JOIN users u ON u.id = m.user_id WHERE m.conversation_id = ${id} AND m.created_at < ${cutoff} ORDER BY m.created_at DESC, m.id DESC LIMIT 100`;
+          await sql`SELECT m.id, m.user_id, m.body, m.envelope, m.created_at, json_build_object('id',u.id,'name',u.name,'avatar',u.avatar,'color',u.color) AS author FROM messages m JOIN users u ON u.id = m.user_id WHERE m.conversation_id = ${id} AND m.created_at < ${cutoff} ORDER BY m.created_at DESC, m.id DESC LIMIT 100`;
         return json(rows.reverse());
       }
       if (req.method === "POST") {
-        const body = bodySchema(4000).parse(input.body);
-        const [message] =
-          await sql`INSERT INTO messages(conversation_id, user_id, body) VALUES (${id}, ${user.id}, ${body}) RETURNING id`;
-        return json(message, 201);
+        throw new ApiError(400, "Требуется зашифрованное сообщение.");
       }
     }
     throw new ApiError(404, "Не найдено.");
@@ -308,7 +395,7 @@ async function handle(
         { error: error.issues[0]?.message ?? "Проверьте данные." },
         400,
       );
-    if (error instanceof ApiError)
+    if (error instanceof ApiError || error instanceof FeatureError)
       return json({ error: error.message }, error.status);
     if ((error as { code?: string }).code === "23505")
       return json({ error: "Это имя уже занято. Выберите другое." }, 409);

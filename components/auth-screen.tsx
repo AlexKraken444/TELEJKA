@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { api, Avatar, Logo, errorText, readAvatar } from "./shared";
+import { ThemeToggle } from "./preferences";
 export function AuthScreen() {
   const [login, setLogin] = useState(false),
     [name, setName] = useState(""),
@@ -39,49 +40,11 @@ export function AuthScreen() {
   }
   return (
     <main className="auth-page">
-      <section className="auth-story">
-        <Logo />
-        <div className="story-content">
-          <span className="eyebrow">
-            <span className="live-dot" /> МЕСТО, ГДЕ ТЕБЯ УСЛЫШАТ
-          </span>
-          <h1>
-            Твои мысли.
-            <br />
-            Твои люди.
-            <br />
-            <span>Твоя тележка.</span>
-          </h1>
-          <p>
-            Делись тем, что важно. Находи своих.
-            <br />
-            Продолжай разговор в личке.
-          </p>
-          <div className="story-card">
-            <div className="story-card-top">
-              <span className="mini-star">
-                <Sparkles size={20} />
-              </span>
-              <span>С чего всё начинается</span>
-              <ArrowUpRight size={19} />
-            </div>
-            <p>С одного простого «привет».</p>
-            <div className="story-card-bottom">
-              <span>
-                <MessageCircle size={16} /> Разговоры без расстояний
-              </span>
-              <Heart size={17} />
-            </div>
-          </div>
-        </div>
-        <div className="story-footer">
-          <span>Меньше шума. Больше общения.</span>
-          <span>↗</span>
-        </div>
-        <div className="orbit orbit-one" />
-        <div className="orbit orbit-two" />
-      </section>
       <section className="auth-form-side">
+        <div className="auth-brand">
+          <Logo />
+          <ThemeToggle />
+        </div>
         <div className="auth-top">
           {login ? "Ещё не с нами?" : "Уже есть аккаунт?"}{" "}
           <button
@@ -95,15 +58,7 @@ export function AuthScreen() {
           </button>
         </div>
         <div className="auth-form-wrap">
-          <span className="small-label">
-            {login ? "С ВОЗВРАЩЕНИЕМ" : "ДАВАЙ ЗНАКОМИТЬСЯ"}
-          </span>
-          <h2>{login ? "Снова на связи." : "Тут начинается общение."}</h2>
-          <p className="muted">
-            {login
-              ? "Твои люди и разговоры уже ждут."
-              : "Пара деталей — и ты в TELEJKA."}
-          </p>
+          <h2>{login ? "Вход" : "Регистрация"}</h2>
           <form onSubmit={submit}>
             {!login && (
               <div className="avatar-field">
@@ -130,8 +85,8 @@ export function AuthScreen() {
                   />
                 </label>
                 <div>
-                  <strong>Твоё лицо. Или первая буква.</strong>
-                  <p>Добавь аватарку, если хочешь</p>
+                  <strong>Аватар</strong>
+                  <p>Необязательно</p>
                   {avatar && (
                     <button
                       type="button"
@@ -207,15 +162,10 @@ export function AuthScreen() {
             <p className="auth-note">
               {login
                 ? "Вход сохраняется на этом устройстве."
-                : "Без номера телефона. Без лишних формальностей."}
+                : "Вход сохраняется на этом устройстве."}
             </p>
           </form>
         </div>
-        <footer className="auth-bottom">
-          <span>
-            Будь собой. Будь на связи. <span className="live-dot" />
-          </span>
-        </footer>
       </section>
     </main>
   );

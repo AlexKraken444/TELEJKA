@@ -27,6 +27,8 @@ export async function currentUser() {
         {
           headers: { cookie: `${COOKIE}=${token}` },
           cache: "no-store",
+          redirect: "error",
+          signal: AbortSignal.timeout(20000),
         },
       );
       return response.ok ? await response.json() : null;

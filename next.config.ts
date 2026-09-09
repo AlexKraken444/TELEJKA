@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 const config: NextConfig = {
   poweredByHeader: false,
-  outputFileTracingIncludes: { "/*": ["./db/schema.sql"] },
+  outputFileTracingIncludes: { "/*": ["./db/schema.sql", "./db/features.sql"] },
   async headers() {
     return [
       {

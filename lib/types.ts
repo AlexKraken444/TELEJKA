@@ -7,6 +7,7 @@ export type User = {
   created_at?: string;
 };
 export type Post = {
+  attachments?: import("@/components/media").Attachment[];
   id: string;
   body: string;
   created_at: string;
@@ -16,6 +17,7 @@ export type Post = {
   liked: boolean;
 };
 export type Comment = {
+  attachments?: import("@/components/media").Attachment[];
   id: string;
   body: string;
   created_at: string;
@@ -30,6 +32,7 @@ export type Chat = {
   updated_at: string;
 };
 export type Message = {
+  envelope?: import("./crypto-chat").Envelope | null;
   id: string;
   body: string;
   created_at: string;

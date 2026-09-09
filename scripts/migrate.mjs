@@ -12,6 +12,7 @@ try {
   );
   await sql.begin(async (tx) => {
     await tx.unsafe(schema);
+    await tx.unsafe(await readFile(new URL("../db/features.sql", import.meta.url), "utf8"));
   });
   console.log("Схема TELEJKA готова.");
 } finally {

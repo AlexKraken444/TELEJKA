@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800;900&display=swap");
 :root {
+  color-scheme: light;
   --bg: #fafbf8;
   --ink: #20251e;
   --muted: #8a8f83;
@@ -8,12 +9,293 @@
   --deep: #293722;
   --font: "Golos Text", Arial, sans-serif;
 }
-.hashtag-list { list-style: none; padding: 0; margin: 0; }
-.hashtag-list li { display: flex; gap: 12px; padding: 12px 0; }
-.hashtag-rank { color: #98a587; font-size: 11px; padding-top: 2px; }
-.hashtag-list strong { font-size: 13px; color: #405631; overflow-wrap: anywhere; }
-.hashtag-list small { display: block; font-size: 10px; color: #929c86; margin-top: 5px; }
-.verified-badge { display: inline-flex; vertical-align: middle; margin-left: 4px; flex-shrink: 0; line-height: 1; }
+.logo-crop img.logo-dark {
+  display: none;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111510;
+  --ink: #eaf0e4;
+  --muted: #a5b09e;
+  --line: #303b2b;
+  --green: #badb8d;
+  --deep: #badb8d;
+}
+[data-theme="dark"] .logo-crop img.logo-light {
+  display: none;
+}
+[data-theme="dark"] .logo-crop img.logo-dark {
+  display: block;
+  mix-blend-mode: screen;
+}
+[data-theme="dark"] .logo-crop {
+  mix-blend-mode: screen;
+}
+[data-theme="dark"] .composer-bottom {
+  border-color: var(--line);
+}
+[data-theme="dark"]
+  :is(
+    input,
+    textarea,
+    .sidebar,
+    .main-content,
+    .page-header,
+    .feed-tabs,
+    .composer,
+    .post,
+    .chat-window,
+    .conversation-heading,
+    .message-form,
+    .modal,
+    .auth-form-side,
+    .mobile-brand,
+    .message
+  ) {
+  background: #171d15;
+  color: var(--ink);
+  border-color: var(--line);
+}
+[data-theme="dark"]
+  :is(
+    .nav-item.active,
+    .secondary,
+    .feed-tabs .selected,
+    .chat-row.active,
+    .message.own,
+    .segmented .selected,
+    .group-avatar,
+    .profile-cover,
+    .members-panel,
+    .selected-people button
+  ) {
+  background: #2b3b22;
+  color: #e4f3d4;
+  border-color: #415734;
+}
+[data-theme="dark"] :is(.primary, .checkbox.checked) {
+  background: #badb8d;
+  color: #182411;
+}
+[data-theme="dark"]
+  :is(.messages, .chat-list, .segmented, .empty, .search-field) {
+  background: #111510;
+  color: var(--muted);
+}
+[data-theme="dark"]
+  :is(
+    .hashtag-list strong,
+    .text-button,
+    .author-name,
+    .brand,
+    .person strong,
+    .suggested strong,
+    .chat-row strong
+  ) {
+  color: var(--ink);
+}
+[data-theme="dark"] .error {
+  background: #3a201e;
+  color: #ffb9af;
+  border-color: #75423b;
+}
+[data-theme="dark"] .avatar {
+  color: #20251e;
+}
+.auth-page {
+  display: flex !important;
+  justify-content: center;
+  min-height: 100dvh;
+}
+.auth-form-side {
+  width: min(100%, 680px);
+  padding: 30px !important;
+}
+.auth-brand {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.auth-form-wrap {
+  margin: 40px auto !important;
+}
+.auth-form-wrap h2 {
+  margin-bottom: 30px;
+}
+.file-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+.file-picker input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+.file-picker label,
+.file-picker.secondary {
+  cursor: pointer;
+}
+.file-picker label:focus-within {
+  outline: 2px solid #86a855;
+}
+.file-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.file-picker .secondary {
+  font-size: 12px;
+  padding: 8px;
+}
+.media-list {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0;
+  max-width: 100%;
+}
+.media-item {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.media-item img,
+.media-item video {
+  display: block;
+  max-width: 100%;
+  max-height: 480px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+.media-item button {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.media-item a {
+  font-size: 12px;
+}
+.chat-files {
+  padding: 0 16px;
+  border-top: 1px solid var(--line);
+}
+.security-panel {
+  margin: 20px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  line-height: 1.6;
+}
+.security-panel p {
+  margin: 10px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.security-panel code {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  margin: 12px 0;
+  user-select: all;
+}
+.security-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.legacy-message {
+  display: block;
+  font-size: 9px;
+  opacity: 0.7;
+  margin-top: 8px;
+}
+.notifications {
+  position: fixed;
+  right: 20px;
+  top: 20px;
+  z-index: 100;
+  display: grid;
+  gap: 8px;
+  max-height: 70dvh;
+  overflow: auto;
+  width: min(340px, calc(100vw - 40px));
+}
+.notification {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 6px 24px #0002;
+}
+.notification > button:first-child {
+  text-align: left;
+  flex: 1;
+}
+.notification span {
+  display: block;
+  color: var(--muted);
+  margin-top: 6px;
+  font-size: 12px;
+}
+.theme-toggle {
+  margin: 8px 0;
+  font-size: 12px;
+}
+.mobile-brand {
+  justify-content: space-between;
+  align-items: center;
+}
+.mobile-brand .theme-toggle span {
+  display: none;
+}
+.hashtag-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.hashtag-list li {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+}
+.hashtag-rank {
+  color: #98a587;
+  font-size: 11px;
+  padding-top: 2px;
+}
+.hashtag-list strong {
+  font-size: 13px;
+  color: #405631;
+  overflow-wrap: anywhere;
+}
+.hashtag-list small {
+  display: block;
+  font-size: 10px;
+  color: #929c86;
+  margin-top: 5px;
+}
+.verified-badge {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 4px;
+  flex-shrink: 0;
+  line-height: 1;
+}
 * {
   box-sizing: border-box;
 }
@@ -1556,7 +1838,7 @@ p {
     min-height: calc(100dvh - 69px);
   }
   .mobile-brand {
-    display: block;
+    display: flex;
     padding: 15px 21px 0;
   }
   .mobile-brand .brand {

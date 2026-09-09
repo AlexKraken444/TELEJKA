@@ -23,7 +23,29 @@ import {
   Camera,
 } from "lucide-react";
 import type { User, Post, Comment, Chat, Message } from "@/lib/types";
-import { api, Avatar, Logo, VerifiedBadge, errorText, readAvatar, time } from "./shared";
+import {
+  api,
+  Avatar,
+  Logo,
+  VerifiedBadge,
+  errorText,
+  readAvatar,
+  time,
+} from "./shared";
+import {
+  ThemeToggle,
+  Notifications,
+  KeyBackup,
+  registerDevice,
+} from "./preferences";
+import { FilePicker, uploadFiles, MediaList } from "./media";
+import { EncryptedMessage } from "./encrypted-message";
+import { ChatKeys } from "./chat-keys";
+import {
+  encryptMessage,
+  fingerprint,
+  type PublicDevice,
+} from "@/lib/crypto-chat";
 type Tab = "feed" | "chats" | "people" | "profile";
 export function SocialApp({ initialUser }: { initialUser: User }) {
   const [user, setUser] = useState(initialUser),
@@ -68,9 +90,15 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
   ];
   return (
     <div className="app-shell">
+      <Notifications
+        userId={user.id}
+        onOpen={(id) => {
+          setChatId(id);
+          setTab("chats");
+        }}
+      />
       <aside className="sidebar">
         <Logo />
-        <span className="sidebar-caption">ТВОЁ МЕСТО В СЕТИ</span>
         <nav>
           {nav.map((item) => (
             <button
@@ -95,19 +123,15 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           <span>Написать пост</span>
         </button>
         <div className="sidebar-bottom">
-          <div className="sidebar-note">
-            <Sparkles size={19} />
-            <p>
-              Хороший разговор
-              <br />
-              начинается с тебя.
-            </p>
-          </div>
+          <ThemeToggle />
           <button className="user-switch" onClick={() => setTab("profile")}>
             <Avatar user={user} size={38} />
             <span>
-              <strong>{user.name}<VerifiedBadge userId={user.id}/></strong>
-              <small>Это ты, привет!</small>
+              <strong>
+                {user.name}
+                <VerifiedBadge userId={user.id} />
+              </strong>
+              <small>Мой профиль</small>
             </span>
             <ChevronRight size={16} />
           </button>
@@ -130,6 +154,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
       <main className={`main-content ${tab === "chats" ? "chat-main" : ""}`}>
         <div className="mobile-brand">
           <Logo />
+          <ThemeToggle />
         </div>
         {error && (
           <div className="error global-error" role="alert">
@@ -149,10 +174,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
         )}
         {tab === "people" && (
           <>
-            <Header
-              title="Свои люди"
-              subtitle="Большие разговоры начинаются со знакомства"
-            />
+            <Header title="Люди" />
             <div className="section-pad">
               <label className="search-field">
                 <Search size={18} />
@@ -185,26 +207,6 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
       </main>
       {tab !== "chats" && (
         <aside className="rightbar">
-          <div className="right-top">
-            <span className="live-dot" /> НА СВЯЗИ С МИРОМ
-          </div>
-          <div className="welcome-card">
-            <span className="welcome-icon">
-              <Sparkles size={23} />
-            </span>
-            <h2>
-              Хорошо, что
-              <br />
-              ты здесь.
-            </h2>
-            <p>
-              Мысли вслух, маленькие открытия и большие разговоры. Здесь есть
-              место всему.
-            </p>
-            <span className="pill">
-              ТВОЯ TELEJKA <ArrowUpRight size={13} />
-            </span>
-          </div>
           <PopularHashtags />
           <div className="right-title">
             <h3>Новые лица</h3>
@@ -218,30 +220,24 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             >
               <Avatar user={person} size={38} />
               <span>
-                <strong>{person.name}<VerifiedBadge userId={person.id}/></strong>
+                <strong>
+                  {person.name}
+                  <VerifiedBadge userId={person.id} />
+                </strong>
                 <small>{person.bio || "Уже в TELEJKA"}</small>
               </span>
               <Plus size={16} />
             </button>
           ))}
           {!people.length && (
-            <p className="muted small">
-              Здесь появятся новые участники. Позови друзей — вместе интереснее.
-            </p>
+            <p className="muted small">Пользователей пока нет.</p>
           )}
           <button
             className="text-button discover"
             onClick={() => setTab("people")}
           >
-            Найти своих <ArrowRightIcon />
+            Найти людей <ArrowRightIcon />
           </button>
-          <div className="community-note">
-            <Hash size={20} />
-            <div>
-              <strong>Общение — это взаимно</strong>
-              <p>Будь внимателен к людям по ту сторону экрана.</p>
-            </div>
-          </div>
         </aside>
       )}
     </div>
@@ -256,7 +252,7 @@ function Header({
   action,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   action?: React.ReactNode;
 }) {
   return (
@@ -266,7 +262,7 @@ function Header({
           {title}
           <span className="heading-dot">.</span>
         </h1>
-        <p>{subtitle}</p>
+        {subtitle && <p>{subtitle}</p>}
       </div>
       {action}
     </header>
@@ -294,8 +290,11 @@ function Person({ person, onChat }: { person: User; onChat: () => void }) {
     <div className="person">
       <Avatar user={person} />
       <div>
-        <strong>{person.name}<VerifiedBadge userId={person.id}/></strong>
-        <p>{person.bio || "Пока без описания — познакомитесь в разговоре"}</p>
+        <strong>
+          {person.name}
+          <VerifiedBadge userId={person.id} />
+        </strong>
+        <p>{person.bio || ""}</p>
       </div>
       <button className="secondary" onClick={onChat}>
         <MessageCircle size={16} />
@@ -313,6 +312,7 @@ function Feed({
   onPerson: (u: User) => void;
   mine?: boolean;
 }) {
+  const [files, setFiles] = useState<File[]>([]);
   const [posts, setPosts] = useState<Post[]>([]),
     [body, setBody] = useState(""),
     [busy, setBusy] = useState(false),
@@ -357,7 +357,12 @@ function Feed({
     setBusy(true);
     setError("");
     try {
-      await api("posts", "POST", { body });
+      const attachments = await uploadFiles(files);
+      await api("posts", "POST", {
+        body,
+        attachmentIds: attachments.map((a) => a.id),
+      });
+      setFiles([]);
       setBody("");
       await refresh();
     } catch (e) {
@@ -368,7 +373,7 @@ function Feed({
   }
   return (
     <>
-      {!mine && <Header title="Лента" subtitle="Что нового в твоём мире?" />}
+      {!mine && <Header title="Лента" />}
       {!mine && (
         <div className="feed-tabs">
           <button
@@ -404,12 +409,16 @@ function Feed({
               maxLength={2000}
               rows={3}
             />
+            <FilePicker files={files} onChange={setFiles} disabled={busy} />
             <div className="composer-bottom">
               <span>
                 <span className="live-dot" /> Видно всем
                 {body.length > 0 && ` · ${body.length}/2000`}
               </span>
-              <button className="primary" disabled={busy || !body.trim()}>
+              <button
+                className="primary"
+                disabled={busy || (!body.trim() && !files.length)}
+              >
                 {busy ? "Публикуем…" : "Опубликовать"}
                 <ArrowUpRight size={17} />
               </button>
@@ -439,12 +448,8 @@ function Feed({
       ) : (
         <Empty
           icon={<Sparkles size={28} />}
-          title={
-            filter
-              ? "Твоя история только начинается"
-              : "Первый пост может быть твоим"
-          }
-          text="Поделись мыслью, расскажи о себе или просто скажи «привет»."
+          title={filter ? "Постов пока нет" : "Постов пока нет"}
+          text=""
         />
       )}
       {more && (
@@ -469,6 +474,7 @@ function PostCard({
   onPerson: (u: User) => void;
   onChange: () => void;
 }) {
+  const [files, setFiles] = useState<File[]>([]);
   const [liked, setLiked] = useState(post.liked),
     [likes, setLikes] = useState(post.likes),
     [open, setOpen] = useState(false),
@@ -514,7 +520,12 @@ function PostCard({
     e.preventDefault();
     setBusy(true);
     try {
-      await api(`posts/${post.id}/comments`, "POST", { body });
+      const attachments = await uploadFiles(files);
+      await api(`posts/${post.id}/comments`, "POST", {
+        body,
+        attachmentIds: attachments.map((a) => a.id),
+      });
+      setFiles([]);
       setBody("");
       await load();
       onChange();
@@ -534,7 +545,7 @@ function PostCard({
             onClick={() => post.author.id !== user.id && onPerson(post.author)}
           >
             {post.author.name}
-            <VerifiedBadge userId={post.author.id}/>
+            <VerifiedBadge userId={post.author.id} />
           </button>
           {post.author.id === user.id && <span className="you-tag">ты</span>}
           <time dateTime={post.created_at}>{time(post.created_at)}</time>
@@ -557,6 +568,7 @@ function PostCard({
           )}
         </div>
         <p className="post-body">{post.body}</p>
+        <MediaList items={post.attachments} />
         <div className="post-actions">
           <button
             className={liked ? "is-liked" : ""}
@@ -589,8 +601,12 @@ function PostCard({
               <div className="comment" key={c.id}>
                 <Avatar user={c.author} size={30} />
                 <div>
-                  <strong>{c.author.name}<VerifiedBadge userId={c.author.id}/></strong>
+                  <strong>
+                    {c.author.name}
+                    <VerifiedBadge userId={c.author.id} />
+                  </strong>
                   <p>{c.body}</p>
+                  <MediaList items={c.attachments} />
                   <small>{time(c.created_at)}</small>
                 </div>
               </div>
@@ -604,6 +620,7 @@ function PostCard({
                 Ещё комментарии
               </button>
             )}
+            <FilePicker files={files} onChange={setFiles} disabled={busy} />
             <form onSubmit={comment} className="comment-form">
               <input
                 aria-label="Комментарий"
@@ -611,11 +628,10 @@ function PostCard({
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 maxLength={1000}
-                required
               />
               <button
                 className="icon-button"
-                disabled={busy || !body.trim()}
+                disabled={busy || (!body.trim() && !files.length)}
                 aria-label="Отправить комментарий"
               >
                 <Send size={17} />
@@ -658,7 +674,6 @@ function Profile({
     <>
       <Header
         title="Твой профиль"
-        subtitle="Немного о человеке по эту сторону экрана"
         action={
           <button
             className="secondary"
@@ -676,10 +691,7 @@ function Profile({
           </button>
         }
       />
-      <div className="profile-cover">
-        <span>Всегда оставайся собой.</span>
-        <Sparkles size={42} />
-      </div>
+      <div className="profile-cover" />
       <form className="profile-form" onSubmit={save}>
         <div className="profile-avatar">
           <label className="upload-avatar">
@@ -756,6 +768,7 @@ function Profile({
           )}
         </button>
       </form>
+      <KeyBackup userId={user.id} />
       <h3 className="profile-posts-title">Твои публикации</h3>
       <Feed user={user} onPerson={() => {}} mine />
     </>
@@ -807,7 +820,6 @@ function Chats({
     <>
       <Header
         title="Сообщения"
-        subtitle="Ближе, даже когда далеко"
         action={
           <button className="secondary" onClick={() => setCreating(true)}>
             <Plus size={18} />
@@ -856,8 +868,17 @@ function Chats({
                   />
                 )}
                 <span>
-                  <strong>{chatName(chat, user.id)}{!chat.is_group && <VerifiedBadge userId={chat.participants.find(p => p.id !== user.id)?.id}/>}</strong>
-                  <small>{chat.last_body || "Начни разговор"}</small>
+                  <strong>
+                    {chatName(chat, user.id)}
+                    {!chat.is_group && (
+                      <VerifiedBadge
+                        userId={
+                          chat.participants.find((p) => p.id !== user.id)?.id
+                        }
+                      />
+                    )}
+                  </strong>
+                  <small>{chat.last_body || "Нет сообщений"}</small>
                 </span>
                 <ChevronRight size={15} />
               </button>
@@ -865,7 +886,7 @@ function Chats({
           {!chats.length && (
             <Empty
               icon={<MessageCircle size={25} />}
-              title="Давай поговорим"
+              title="Нет чатов"
               text="Создай личный чат или собери друзей в группу."
             />
           )}
@@ -884,9 +905,7 @@ function Chats({
           ) : (
             <Empty
               icon={<MessageCircle size={38} />}
-              title={
-                selected ? "Открываем разговор…" : "Здесь начинается разговор"
-              }
+              title={selected ? "Открываем разговор…" : "Выберите чат"}
               text="Выбери чат слева или напиши кому-то первым."
             />
           )}
@@ -919,6 +938,11 @@ function Conversation({
   user: User;
   onBack: () => void;
 }) {
+  const [files, setFiles] = useState<File[]>([]),
+    [keyWarning, setKeyWarning] = useState<{
+      value: string;
+      prints: string[];
+    } | null>(null);
   const [messages, setMessages] = useState<Message[]>([]),
     [body, setBody] = useState(""),
     [busy, setBusy] = useState(false),
@@ -975,10 +999,48 @@ function Conversation({
   }, [messages]);
   async function send(e: FormEvent) {
     e.preventDefault();
-    if (busy || !body.trim()) return;
+    if (busy || (!body.trim() && !files.length)) return;
     setBusy(true);
     try {
-      await api(`chats/${chat.id}/messages`, "POST", { body });
+      await registerDevice(user.id);
+      const devices = await api<PublicDevice[]>(`chats/${chat.id}/keys`);
+      if (
+        chat.participants.some((p) => !devices.some((d) => d.user_id === p.id))
+      )
+        throw Error(
+          "Все участники должны открыть обновлённую TELEJKA для создания ключей шифрования.",
+        );
+      const prints = await Promise.all(
+        devices.map(
+          async (d) =>
+            `${chat.participants.find((p) => p.id === d.user_id)?.name ?? "Участник"}: ${await fingerprint(d.public_key)}`,
+        ),
+      );
+      const value = devices
+        .map((d) => d.id + ":" + d.public_key.n)
+        .sort()
+        .join("|");
+      const pin = "telejka-peers:" + user.id + ":" + chat.id;
+      const previous = localStorage.getItem(pin);
+      if (previous && previous !== value) {
+        setKeyWarning({ value, prints });
+        throw Error(
+          "Устройства участников изменились. Проверьте ключи перед отправкой.",
+        );
+      }
+      if (!previous) localStorage.setItem(pin, value);
+      const attachments = await uploadFiles(files, chat.id);
+      const envelope = await encryptMessage(
+        chat.id,
+        { body, attachments },
+        devices,
+      );
+      await api(`chats/${chat.id}/messages`, "POST", {
+        envelope,
+        clientId: crypto.randomUUID(),
+        attachmentIds: attachments.map((a) => a.id),
+      });
+      setFiles([]);
       setBody("");
       nearBottom.current = true;
       merge(await api<Message[]>(`chats/${chat.id}/messages`));
@@ -1016,7 +1078,14 @@ function Conversation({
           <ArrowLeft size={20} />
         </button>
         <div>
-          <strong>{chatName(chat, user.id)}{!chat.is_group && <VerifiedBadge userId={chat.participants.find(p => p.id !== user.id)?.id}/>}</strong>
+          <strong>
+            {chatName(chat, user.id)}
+            {!chat.is_group && (
+              <VerifiedBadge
+                userId={chat.participants.find((p) => p.id !== user.id)?.id}
+              />
+            )}
+          </strong>
           <small>
             {chat.is_group
               ? `${chat.participants.length} участников`
@@ -1033,11 +1102,12 @@ function Conversation({
       </div>
       {showMembers && (
         <div className="members-panel">
+          <ChatKeys chat={chat} />
           {chat.participants.map((p) => (
             <div key={p.id}>
               <Avatar user={p} size={25} />
               {p.name}
-              <VerifiedBadge userId={p.id}/>
+              <VerifiedBadge userId={p.id} />
               {p.id === user.id && " (ты)"}
             </div>
           ))}
@@ -1060,11 +1130,7 @@ function Conversation({
         )}
         {loading && <p className="loading">Загружаем сообщения…</p>}
         {!loading && !messages.length && (
-          <Empty
-            icon={<Send size={27} />}
-            title="Скажи «привет»"
-            text="Все хорошие разговоры с чего-то начинаются."
-          />
+          <Empty icon={<Send size={27} />} title="Нет сообщений" text="" />
         )}
         {messages.map((m) => (
           <div
@@ -1072,9 +1138,12 @@ function Conversation({
             className={`message ${m.user_id === user.id ? "own" : ""}`}
           >
             {chat.is_group && m.user_id !== user.id && (
-              <strong>{m.author.name}<VerifiedBadge userId={m.author.id}/></strong>
+              <strong>
+                {m.author.name}
+                <VerifiedBadge userId={m.author.id} />
+              </strong>
             )}
-            <p>{m.body}</p>
+            <EncryptedMessage message={m} chatId={chat.id} userId={user.id} />
             <time title={time(m.created_at)}>
               {new Intl.DateTimeFormat("ru", {
                 hour: "2-digit",
@@ -1089,6 +1158,34 @@ function Conversation({
           {error}
         </p>
       )}
+      {keyWarning && (
+        <div className="security-panel">
+          <strong>Изменились ключи участников</strong>
+          <p>
+            Сравните эти отпечатки с ключами в профилях собеседников по другому
+            каналу связи.
+          </p>
+          {keyWarning.prints.map((p) => (
+            <code key={p}>{p}</code>
+          ))}
+          <button
+            className="secondary"
+            onClick={() => {
+              localStorage.setItem(
+                "telejka-peers:" + user.id + ":" + chat.id,
+                keyWarning.value,
+              );
+              setKeyWarning(null);
+              setError("");
+            }}
+          >
+            Подтвердить ключи
+          </button>
+        </div>
+      )}
+      <div className="chat-files">
+        <FilePicker files={files} onChange={setFiles} disabled={busy} chat />
+      </div>
       <form className="message-form" onSubmit={send}>
         <textarea
           placeholder="Напиши что-нибудь…"
@@ -1111,7 +1208,7 @@ function Conversation({
         <button
           className="primary"
           aria-label="Отправить сообщение"
-          disabled={busy || !body.trim()}
+          disabled={busy || (!body.trim() && !files.length)}
         >
           <Send size={19} />
         </button>
@@ -1257,7 +1354,10 @@ function NewChat({
               }
             >
               <Avatar user={p} size={36} />
-              <strong>{p.name}<VerifiedBadge userId={p.id}/></strong>
+              <strong>
+                {p.name}
+                <VerifiedBadge userId={p.id} />
+              </strong>
               <span
                 className={`checkbox ${selected.some((x) => x.id === p.id) ? "checked" : ""}`}
               >

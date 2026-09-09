@@ -3,12 +3,27 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
+import { readFile } from "node:fs/promises";
+import bcrypt from "bcryptjs";
+import {
+  encryptMessage,
+  decryptMessage,
+  type DeviceIdentity,
+  type PublicDevice,
+} from "../lib/crypto-chat";
 const origin = "http://localhost:3101";
 test(
   "full API flow: persistent auth, feed, comments, private chats and groups",
   { timeout: 120000 },
   async (t) => {
     const db = await PGlite.create();
+    await db.exec(
+      await readFile(new URL("../db/schema.sql", import.meta.url), "utf8"),
+    );
+    await db.query(
+      "INSERT INTO users(name,name_key,password_hash,color) VALUES ('До обновления','до обновления',$1,'#d8efac')",
+      [await bcrypt.hash("legacy-password-123", 12)],
+    );
     const socket = new PGLiteSocketServer({
       db,
       port: 5434,
@@ -28,6 +43,7 @@ test(
           NEON_DATABASE_URL:
             "postgresql://postgres:postgres@127.0.0.1:5434/postgres",
           NODE_ENV: "production",
+          TELEJKA_DB_POOL_SIZE: "1",
         },
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
@@ -77,6 +93,16 @@ test(
       };
     }
     const accounts: { id: string; cookie: string }[] = [];
+    assert.equal(
+      (
+        await request("auth/login", "POST", {
+          name: "До обновления",
+          password: "legacy-password-123",
+        })
+      ).status,
+      200,
+      "Existing hashes must migrate without resetting passwords",
+    );
     for (const name of ["Алиса", "Борис", "Вера", "Глеб"]) {
       const res = await request("auth/register", "POST", {
         name,
@@ -123,7 +149,7 @@ test(
       200,
     );
     const userRows = await db.query<{ password_hash: string }>(
-      "SELECT password_hash FROM users",
+      "SELECT password_hash FROM telejka_auth.credentials",
     );
     assert.ok(
       userRows.rows.every((row) => row.password_hash.startsWith("$2b$")),
@@ -135,9 +161,12 @@ test(
       alice.cookie,
     );
     assert.equal(post.status, 201);
-    const trends = await request('hashtags', 'GET', undefined, alice.cookie);
+    const trends = await request("hashtags", "GET", undefined, alice.cookie);
     assert.equal(trends.status, 200);
-    assert.deepEqual(trends.body, [{tag: 'nextjs', posts: 1}, {tag: 'привет', posts: 1}]);
+    assert.deepEqual(trends.body, [
+      { tag: "nextjs", posts: 1 },
+      { tag: "привет", posts: 1 },
+    ]);
     assert.equal(
       (
         await request(
@@ -170,6 +199,39 @@ test(
         .status,
       404,
     );
+    const identities: DeviceIdentity[] = [];
+    const devices: PublicDevice[] = [];
+    for (const account of accounts) {
+      const pair = await crypto.subtle.generateKey(
+        {
+          name: "RSA-OAEP",
+          modulusLength: 2048,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash: "SHA-256",
+        },
+        true,
+        ["encrypt", "decrypt"],
+      );
+      const publicKey = await crypto.subtle.exportKey("jwk", pair.publicKey),
+        id = crypto.randomUUID();
+      identities.push({
+        id,
+        userId: account.id,
+        privateKey: pair.privateKey,
+        publicKey,
+      });
+      devices.push({ id, user_id: account.id, public_key: publicKey });
+      assert.equal(
+        (await request("devices", "POST", { id, publicKey }, account.cookie))
+          .status,
+        200,
+      );
+    }
+    assert.equal(
+      (await db.query("SELECT id FROM users WHERE password_hash IS NOT NULL"))
+        .rows.length,
+      0,
+    );
     const direct = await request(
       "chats",
       "POST",
@@ -189,7 +251,24 @@ test(
         await request(
           `chats/${direct.body.id}/messages`,
           "POST",
-          { body: "Личное сообщение" },
+          { body: "raw text" },
+          alice.cookie,
+        )
+      ).status,
+      400,
+    );
+    const envelope = await encryptMessage(
+      direct.body.id,
+      { body: "Личное сообщение", attachments: [] },
+      devices.slice(0, 2),
+    );
+    const clientId = crypto.randomUUID();
+    assert.equal(
+      (
+        await request(
+          `chats/${direct.body.id}/messages`,
+          "POST",
+          { envelope, clientId },
           alice.cookie,
         )
       ).status,
@@ -204,7 +283,7 @@ test(
           bob.cookie,
         )
       ).body[0].body,
-      "Личное сообщение",
+      "🔒 Зашифрованное сообщение",
     );
     assert.equal(
       (
@@ -228,6 +307,192 @@ test(
       ).status,
       404,
     );
+    const received = (
+      await request(
+        `chats/${direct.body.id}/messages`,
+        "GET",
+        undefined,
+        bob.cookie,
+      )
+    ).body[0];
+    assert.equal(
+      (
+        await decryptMessage<{ body: string }>(
+          direct.body.id,
+          received.envelope,
+          identities[1],
+        )
+      ).body,
+      "Личное сообщение",
+    );
+    await request(
+      `chats/${direct.body.id}/messages`,
+      "POST",
+      { envelope, clientId },
+      alice.cookie,
+    );
+    assert.equal(
+      (
+        await request(
+          `chats/${direct.body.id}/messages`,
+          "GET",
+          undefined,
+          bob.cookie,
+        )
+      ).body.length,
+      1,
+    );
+    const notices = await Promise.all([
+      request("notifications", "POST", {}, bob.cookie),
+      request("notifications", "POST", {}, bob.cookie),
+    ]);
+    for (const notice of notices)
+      assert.equal(
+        notice.status,
+        200,
+        JSON.stringify(notice.body) + " " + output,
+      );
+    assert.equal(
+      notices.reduce((n, r) => n + r.body.length, 0),
+      1,
+    );
+    assert.deepEqual(
+      (await request("notifications", "POST", {}, bob.cookie)).body,
+      [],
+    );
+    const privateUpload = await request(
+      "uploads",
+      "POST",
+      {
+        name: "encrypted",
+        mime: "application/octet-stream",
+        size: 3,
+        chatId: direct.body.id,
+      },
+      alice.cookie,
+    );
+    assert.equal(privateUpload.status, 201);
+    const uid = privateUpload.body.id;
+    assert.equal(
+      (await request(`uploads/${uid}/0`, "POST", { data: "AQID" }, bob.cookie))
+        .status,
+      404,
+    );
+    assert.equal(
+      (await request(`uploads/${uid}/complete`, "POST", {}, alice.cookie))
+        .status,
+      400,
+    );
+    assert.equal(
+      (
+        await request(
+          `uploads/${uid}/0`,
+          "POST",
+          { data: "AQ==" },
+          alice.cookie,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await request(
+          `uploads/${uid}/0`,
+          "POST",
+          { data: "AQID" },
+          alice.cookie,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      (await request(`uploads/${uid}/complete`, "POST", {}, alice.cookie))
+        .status,
+      200,
+    );
+    assert.equal(
+      (await request(`uploads/${uid}`, "GET", undefined, bob.cookie)).status,
+      404,
+    );
+    assert.equal(
+      (
+        await request(
+          `chats/${direct.body.id}/messages`,
+          "POST",
+          { envelope, clientId: crypto.randomUUID(), attachmentIds: [uid] },
+          alice.cookie,
+        )
+      ).status,
+      201,
+    );
+    assert.equal(
+      (await request(`uploads/${uid}/0`, "GET", undefined, bob.cookie)).body
+        .data,
+      "AQID",
+    );
+    assert.equal(
+      (await request(`uploads/${uid}`, "GET", undefined, outsider.cookie))
+        .status,
+      404,
+    );
+    assert.equal(
+      (
+        await request(
+          "posts",
+          "POST",
+          { body: "", attachmentIds: [uid] },
+          alice.cookie,
+        )
+      ).status,
+      400,
+    );
+    const pub = await request(
+      "uploads",
+      "POST",
+      { name: "photo.png", mime: "image/png", size: 3 },
+      alice.cookie,
+    );
+    await request(
+      `uploads/${pub.body.id}/0`,
+      "POST",
+      { data: "AQID" },
+      alice.cookie,
+    );
+    await request(`uploads/${pub.body.id}/complete`, "POST", {}, alice.cookie);
+    assert.equal(
+      (
+        await request(
+          "posts",
+          "POST",
+          { body: "", attachmentIds: [pub.body.id] },
+          bob.cookie,
+        )
+      ).status,
+      400,
+    );
+    const photoPost = await request(
+      "posts",
+      "POST",
+      { body: "", attachmentIds: [pub.body.id] },
+      alice.cookie,
+    );
+    assert.equal(photoPost.status, 201);
+    assert.equal(
+      (await request(`uploads/${pub.body.id}/0`, "GET", undefined, bob.cookie))
+        .status,
+      200,
+    );
+    assert.equal(
+      (
+        await request(
+          "uploads",
+          "POST",
+          { name: "page.html", mime: "text/html", size: 3 },
+          alice.cookie,
+        )
+      ).status,
+      400,
+    );
     const group = await request(
       "chats",
       "POST",
@@ -238,7 +503,14 @@ test(
     await request(
       `chats/${group.body.id}/messages`,
       "POST",
-      { body: "Всем привет" },
+      {
+        envelope: await encryptMessage(
+          group.body.id,
+          { body: "Всем привет", attachments: [] },
+          devices.slice(0, 3),
+        ),
+        clientId: crypto.randomUUID(),
+      },
       vera.cookie,
     );
     assert.equal(
@@ -269,6 +541,21 @@ test(
       alice.cookie,
     );
     assert.equal(updated.status, 200);
+    await db.query(
+      "INSERT INTO rate_limits(key,count,resets_at) VALUES ($1,120,now()+interval '1 minute') ON CONFLICT(key) DO UPDATE SET count=120,resets_at=now()+interval '1 minute'",
+      ["write:" + outsider.id],
+    );
+    assert.equal(
+      (
+        await request(
+          "posts",
+          "POST",
+          { body: "rate limited" },
+          outsider.cookie,
+        )
+      ).status,
+      429,
+    );
     assert.equal(
       (
         await request("auth/login", "POST", {
@@ -294,7 +581,10 @@ test(
         .status,
       200,
     );
-    assert.deepEqual((await request('hashtags', 'GET', undefined, freshCookie)).body, []);
+    assert.deepEqual(
+      (await request("hashtags", "GET", undefined, freshCookie)).body,
+      [],
+    );
     assert.equal(
       (
         await db.query<{ count: number }>(
