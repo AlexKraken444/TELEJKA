@@ -827,6 +827,126 @@ p {
   font-size: 31px;
   margin-left: 6px;
 }
+.sidebar > nav {
+  margin-top: 36px;
+}
+[data-theme="dark"] .you-tag {background:#314126;color:#c9d9ba;}
+.draft-attachment {
+  width: 160px;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.draft-attachment > img,
+.draft-attachment > video {
+  display: block;
+  width: 100%;
+  height: 112px;
+  object-fit: cover;
+  background: var(--bg);
+}
+.draft-attachment .file-chip {
+  border: 0;
+  width: 100%;
+  justify-content: space-between;
+  text-align: left;
+}
+.inline-media {
+  width: 100%;
+  min-width: min(260px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.inline-media img,
+.inline-media video {
+  width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+  border-radius: 0;
+}
+.inline-media > a,
+.inline-media > small {
+  display: block;
+  padding: 8px 12px;
+}
+.media-placeholder {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  background: var(--bg);
+}
+[data-theme="dark"]
+  :is(
+    .chat-item.selected,
+    .chat-item:hover,
+    .nav-item:hover,
+    .icon-button:hover,
+    .user-switch:hover,
+    .suggested:hover
+  ) {
+  background: #293623;
+  color: var(--ink);
+}
+[data-theme="dark"]
+  :is(
+    .nav-item,
+    .chat-item small,
+    .message time,
+    .post-heading time,
+    .person p,
+    .hashtag-list small,
+    .field-label span,
+    .auth-top,
+    .auth-note,
+    .logout,
+    .post-actions button,
+    .segmented button
+  ) {
+  color: #adb9a5;
+}
+[data-theme="dark"]
+  :is(
+    .message strong,
+    .hashtag-list strong,
+    .text-button,
+    .segmented button.selected
+  ) {
+  color: #cee6b4;
+}
+[data-theme="dark"]
+  :is(
+    .composer,
+    .comments,
+    .profile-posts-title,
+    .profile-avatar .avatar,
+    .checkbox,
+    .file-chip
+  ) {
+  border-color: var(--line);
+}
+[data-theme="dark"] :is(input, textarea)::placeholder {
+  color: #95a28c;
+}
+[data-theme="dark"] .primary:hover:not(:disabled) {
+  background: #c8e89f;
+  color: #182411;
+}
+[data-theme="dark"] .secondary:hover:not(:disabled) {
+  background: #35472b;
+  color: #e4f3d4;
+}
+[data-theme="dark"] .feed-tabs button.selected {
+  color: #d9ecc5;
+  border-bottom-color: #badb8d;
+}
+[data-theme="dark"] .post-actions button.is-liked {
+  color: #ee9eae;
+}
 .sidebar-caption {
   font-size: 8px;
   letter-spacing: 1.7px;
@@ -1814,6 +1934,7 @@ p {
     display: none;
   }
   .sidebar nav {
+    margin-top: 0;
     display: flex;
     height: 100%;
     justify-content: space-around;

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Paperclip, X } from "lucide-react";
 import { api, errorText } from "./shared";
 import { bytes64, from64, encryptFile, decryptFile } from "@/lib/crypto-chat";
@@ -66,19 +66,37 @@ export function FilePicker({
         />
       </label>
       {files.map((f, i) => (
-        <button
-          type="button"
-          disabled={disabled}
-          className="file-chip"
-          key={i}
-          onClick={() => onChange(files.filter((_, j) => i !== j))}
-        >
-          {f.name}
-          <X size={13} />
-        </button>
+        <div className="draft-attachment" key={i}>
+          <DraftPreview file={f} />
+          <button
+            type="button"
+            disabled={disabled}
+            className="file-chip"
+            key={i}
+            onClick={() => onChange(files.filter((_, j) => i !== j))}
+          >
+            {f.name}
+            <X size={13} />
+          </button>
+        </div>
       ))}
       {error && <small role="alert">{error}</small>}
     </div>
+  );
+}
+function DraftPreview({ file }: { file: File }) {
+  const [url, setUrl] = useState("");
+  useEffect(() => {
+    if (!publicTypes.includes(file.type)) return;
+    const src = URL.createObjectURL(file);
+    setUrl(src);
+    return () => URL.revokeObjectURL(src);
+  }, [file]);
+  if (!url) return null;
+  return file.type.startsWith("image/") ? (
+    <img src={url} alt={file.name} />
+  ) : (
+    <video src={url} controls playsInline preload="metadata" />
   );
 }
 export async function uploadFiles(
@@ -125,6 +143,10 @@ export function MediaList({ items = [] }: { items?: Attachment[] }) {
   );
 }
 function Media({ item }: { item: Attachment }) {
+  const root = useRef<HTMLDivElement>(null),
+    alive = useRef(true),
+    loading = useRef(false);
+  const inline = publicTypes.includes(item.mime);
   const [url, setUrl] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -134,7 +156,9 @@ function Media({ item }: { item: Attachment }) {
     },
     [url],
   );
-  async function load() {
+  const load = useCallback(async () => {
+    if (loading.current) return;
+    loading.current = true;
     setBusy(true);
     setError("");
     try {
@@ -153,29 +177,67 @@ function Media({ item }: { item: Attachment }) {
       const mime = publicTypes.includes(item.mime)
         ? item.mime
         : "application/octet-stream";
-      setUrl(
-        URL.createObjectURL(new Blob([plain as BlobPart], { type: mime })),
-      );
+      if (alive.current)
+        setUrl(
+          URL.createObjectURL(new Blob([plain as BlobPart], { type: mime })),
+        );
     } catch (e) {
-      setError(errorText(e));
+      if (alive.current) setError(errorText(e));
     } finally {
-      setBusy(false);
+      loading.current = false;
+      if (alive.current) setBusy(false);
     }
-  }
+  }, [item.id, item.mime, item.key, item.iv]);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!inline || !root.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          observer.disconnect();
+          void load();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(root.current);
+    return () => observer.disconnect();
+  }, [inline, load]);
   return (
-    <div className="media-item">
+    <div className={`media-item ${inline ? "inline-media" : ""}`} ref={root}>
       {url ? (
         <>
           {publicTypes.includes(item.mime) && item.mime.startsWith("image/") ? (
             <img src={url} alt={item.name} />
           ) : publicTypes.includes(item.mime) &&
             item.mime.startsWith("video/") ? (
-            <video src={url} controls preload="metadata" />
+            <video
+              src={url}
+              controls
+              playsInline
+              preload="metadata"
+              onError={() =>
+                setError(
+                  "Браузер не поддерживает это видео. Его можно скачать по ссылке ниже.",
+                )
+              }
+            />
           ) : null}
           <a className="text-button" href={url} download={item.name}>
             Скачать {item.name}
           </a>
         </>
+      ) : inline && !error ? (
+        <div className="media-placeholder" role="status">
+          {item.mime.startsWith("image/")
+            ? "Загружаем фото…"
+            : "Загружаем видео…"}
+        </div>
       ) : (
         <button
           type="button"

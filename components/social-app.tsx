@@ -32,20 +32,10 @@ import {
   readAvatar,
   time,
 } from "./shared";
-import {
-  ThemeToggle,
-  Notifications,
-  KeyBackup,
-  registerDevice,
-} from "./preferences";
+import { ThemeToggle, Notifications, registerDevice } from "./preferences";
 import { FilePicker, uploadFiles, MediaList } from "./media";
 import { EncryptedMessage } from "./encrypted-message";
-import { ChatKeys } from "./chat-keys";
-import {
-  encryptMessage,
-  fingerprint,
-  type PublicDevice,
-} from "@/lib/crypto-chat";
+import { encryptMessage, type PublicDevice } from "@/lib/crypto-chat";
 type Tab = "feed" | "chats" | "people" | "profile";
 export function SocialApp({ initialUser }: { initialUser: User }) {
   const [user, setUser] = useState(initialUser),
@@ -768,7 +758,6 @@ function Profile({
           )}
         </button>
       </form>
-      <KeyBackup userId={user.id} />
       <h3 className="profile-posts-title">Твои публикации</h3>
       <Feed user={user} onPerson={() => {}} mine />
     </>
@@ -941,7 +930,6 @@ function Conversation({
   const [files, setFiles] = useState<File[]>([]),
     [keyWarning, setKeyWarning] = useState<{
       value: string;
-      prints: string[];
     } | null>(null);
   const [messages, setMessages] = useState<Message[]>([]),
     [body, setBody] = useState(""),
@@ -1008,14 +996,8 @@ function Conversation({
         chat.participants.some((p) => !devices.some((d) => d.user_id === p.id))
       )
         throw Error(
-          "Все участники должны открыть обновлённую TELEJKA для создания ключей шифрования.",
+          "Чтобы начать переписку, все участники должны хотя бы раз открыть обновлённую TELEJKA.",
         );
-      const prints = await Promise.all(
-        devices.map(
-          async (d) =>
-            `${chat.participants.find((p) => p.id === d.user_id)?.name ?? "Участник"}: ${await fingerprint(d.public_key)}`,
-        ),
-      );
       const value = devices
         .map((d) => d.id + ":" + d.public_key.n)
         .sort()
@@ -1023,9 +1005,9 @@ function Conversation({
       const pin = "telejka-peers:" + user.id + ":" + chat.id;
       const previous = localStorage.getItem(pin);
       if (previous && previous !== value) {
-        setKeyWarning({ value, prints });
+        setKeyWarning({ value });
         throw Error(
-          "Устройства участников изменились. Проверьте ключи перед отправкой.",
+          "Участник вошёл с другого устройства. Подтвердите продолжение переписки.",
         );
       }
       if (!previous) localStorage.setItem(pin, value);
@@ -1102,7 +1084,6 @@ function Conversation({
       </div>
       {showMembers && (
         <div className="members-panel">
-          <ChatKeys chat={chat} />
           {chat.participants.map((p) => (
             <div key={p.id}>
               <Avatar user={p} size={25} />
@@ -1160,14 +1141,7 @@ function Conversation({
       )}
       {keyWarning && (
         <div className="security-panel">
-          <strong>Изменились ключи участников</strong>
-          <p>
-            Сравните эти отпечатки с ключами в профилях собеседников по другому
-            каналу связи.
-          </p>
-          {keyWarning.prints.map((p) => (
-            <code key={p}>{p}</code>
-          ))}
+          <strong>Новое устройство у участника</strong>
           <button
             className="secondary"
             onClick={() => {
@@ -1179,7 +1153,7 @@ function Conversation({
               setError("");
             }}
           >
-            Подтвердить ключи
+            Продолжить переписку
           </button>
         </div>
       )}

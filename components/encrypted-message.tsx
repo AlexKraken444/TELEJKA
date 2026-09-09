@@ -34,24 +34,13 @@ export function EncryptedMessage({
           if (alive) setDecoded(data);
         })
         .catch(() => {
-          if (alive)
-            setError(
-              "Не удалось расшифровать. Восстановите ключ в профиле, если сменили устройство.",
-            );
+          if (alive) setError("Сообщение недоступно на этом устройстве.");
         });
     return () => {
       alive = false;
     };
   }, [message.envelope, chatId, userId]);
-  if (!message.envelope)
-    return (
-      <>
-        <p>{message.body}</p>
-        <small className="legacy-message">
-          Старое сообщение · без сквозного шифрования
-        </small>
-      </>
-    );
+  if (!message.envelope) return <p>{message.body}</p>;
   return decoded ? (
     <>
       <p>{decoded.body}</p>
