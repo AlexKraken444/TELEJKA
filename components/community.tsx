@@ -4,6 +4,7 @@ import type { User, Reaction, Chat } from "@/lib/types";
 import { api, errorText, UserName } from "./shared";
 type Wallet = {
   balance: number;
+  unlimited?: boolean;
   streak: number;
   plus_active: boolean;
   plus_until?: string;
@@ -88,7 +89,7 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
             <img src="/baton.png" alt="БАТОНчик" />
             <div>
               <small>Твой баланс</small>
-              <h2>{wallet.balance} БАТОНчиков</h2>
+              <h2>{wallet.unlimited ? "∞" : wallet.balance} БАТОНчиков</h2>
               <p>Дней подряд: {wallet.streak}</p>
             </div>
           </div>
@@ -147,7 +148,7 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
             )}
             <button
               className="primary"
-              disabled={busy || wallet.balance < 100}
+              disabled={busy || (!wallet.unlimited && wallet.balance < 100)}
               onClick={() => action(true)}
             >
               {wallet.plus_active ? "Продлить на месяц" : "Купить TELEJKA+"}

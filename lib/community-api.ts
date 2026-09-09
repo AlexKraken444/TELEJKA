@@ -1,3 +1,4 @@
+import {VERIFICATION_OWNER_ID} from "./verification";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "./db";
@@ -44,7 +45,7 @@ async function walletStatus(userId: string) {
     await sql`SELECT w.balance::float8 balance,w.streak,w.last_visit::text last_visit,u.plus_until,COALESCE(u.plus_until>now(),false) plus_active,(now() AT TIME ZONE 'Europe/Moscow')::date::text today FROM wallets w JOIN users u ON u.id=w.user_id WHERE w.user_id=${userId}`;
   const [quest] =
     await sql`SELECT kind,target,progress,claimed FROM daily_quests WHERE user_id=${userId} AND day=(now() AT TIME ZONE 'Europe/Moscow')::date`;
-  return { ...w, quest, quest_reward: 30, plus_price: 100 };
+  return { ...w, unlimited:userId===VERIFICATION_OWNER_ID, quest, quest_reward: 30, plus_price: 100 };
 }
 export async function communityApi(
   req: NextRequest,
@@ -98,11 +99,12 @@ export async function communityApi(
       const [old] =
         await tx`SELECT 1 FROM baton_ledger WHERE user_id=${userId} AND ref=${"plus:" + requestId}`;
       if (old) return;
-      if (Number(wallet.balance) < 100)
+      const unlimited=userId===VERIFICATION_OWNER_ID;
+      if (!unlimited && Number(wallet.balance) < 100)
         throw new FeatureError(400, "Нужно 100 БАТОНчиков.");
-      await tx`UPDATE wallets SET balance=balance-100 WHERE user_id=${userId}`;
+      if(!unlimited)await tx`UPDATE wallets SET balance=balance-100 WHERE user_id=${userId}`;
       await tx`UPDATE users SET plus_until=greatest(COALESCE(plus_until,now()),now())+interval '1 month' WHERE id=${userId}`;
-      await tx`INSERT INTO baton_ledger(user_id,ref,amount) VALUES(${userId},${"plus:" + requestId},-100)`;
+      await tx`INSERT INTO baton_ledger(user_id,ref,amount) VALUES(${userId},${"plus:" + requestId},${unlimited?0:-100})`;
     });
     return json(await walletStatus(userId));
   }

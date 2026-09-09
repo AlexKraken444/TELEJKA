@@ -763,6 +763,15 @@ test(
     });
     const ownerCookie = ownerLogin.cookie.split(";")[0];
     assert.equal(ownerLogin.body.can_manage_verification, true);
+    assert.equal((await request('rewards','GET',undefined,ownerCookie)).body.unlimited,true);
+    assert.equal((await request('rewards','GET',undefined,alice.cookie)).body.unlimited,false);
+    const ownerPurchase=crypto.randomUUID();
+    for(let i=0;i<2;i++)assert.equal((await request('plus/buy','POST',{requestId:ownerPurchase},ownerCookie)).status,200);
+    assert.equal((await request('rewards','GET',undefined,ownerCookie)).body.balance,0);
+    assert.equal((await request('rewards','GET',undefined,ownerCookie)).body.plus_active,true);
+    assert.equal((await request('plus/buy','POST',{requestId:crypto.randomUUID(),unlimited:true},bob.cookie)).status,400);
+    assert.equal((await request('plus/buy','POST',{requestId:crypto.randomUUID()},bob.cookie)).status,400);
+
     for (const verified of [true, false]) {
       assert.equal(
         (
