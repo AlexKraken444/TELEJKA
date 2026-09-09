@@ -1,9 +1,18 @@
 "use client";
 import type { User } from "@/lib/types";
-import { BadgeCheck } from 'lucide-react';
-export function VerifiedBadge({ userId }: { userId?: string }) {
-  if (userId !== '5158ea3a-fcb5-44cb-8f29-362b94aa1744') return null;
-  return <span className="verified-badge" role="img" aria-label="Подтверждённый аккаунт" title="Подтверждённый аккаунт"><BadgeCheck size={16} fill="#398ce8" stroke="white" strokeWidth={2}/></span>;
+import { BadgeCheck } from "lucide-react";
+export function VerifiedBadge({ verified }: { verified?: boolean }) {
+  if (!verified) return null;
+  return (
+    <span
+      className="verified-badge"
+      role="img"
+      aria-label="Подтверждённый аккаунт"
+      title="Подтверждённый аккаунт"
+    >
+      <BadgeCheck size={16} fill="#398ce8" stroke="white" strokeWidth={2} />
+    </span>
+  );
 }
 export async function api<T>(
   path: string,
@@ -22,9 +31,13 @@ export async function api<T>(
       window.location.assign("/register");
     throw new Error(body.error || "Не удалось выполнить запрос.");
   }
-  if ((path === "posts" && method === "POST") || (/^posts\/[^/]+$/.test(path) && method === "DELETE")) {
+  if (
+    (path === "posts" && method === "POST") ||
+    (/^posts\/[^/]+$/.test(path) && method === "DELETE")
+  ) {
     window.dispatchEvent(new Event("telejka-posts-changed"));
   }
+  if (method !== "GET") window.dispatchEvent(new Event("telejka-activity"));
   return body;
 }
 export function Avatar({
@@ -100,4 +113,13 @@ export async function readAvatar(file: File): Promise<string> {
     );
   bitmap.close();
   return canvas.toDataURL("image/webp", 0.85);
+}
+
+export function UserName({ user }: { user: User }) {
+  return (
+    <span style={{ color: user.name_color || undefined }}>
+      {user.name}
+      <VerifiedBadge verified={user.verified} />
+    </span>
+  );
 }

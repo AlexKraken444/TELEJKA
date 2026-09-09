@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "./db";
-export class FeatureError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+import { FeatureError } from "./api-error";
+export { FeatureError } from "./api-error";
+import { canSendChat } from "./community-api";
 const reply = (data: unknown, status = 200) =>
   NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
 const id = z.uuid(),
@@ -107,6 +102,8 @@ export async function featureApi(
       await sql`WITH candidates AS (
     SELECT m.id FROM messages m JOIN members mb ON mb.conversation_id=m.conversation_id
     WHERE mb.user_id=${userId} AND m.user_id<>${userId}
+    AND (mb.cleared_at IS NULL OR m.created_at>mb.cleared_at)
+    AND NOT EXISTS(SELECT 1 FROM user_blocks b WHERE (b.user_id=${userId} AND b.blocked_id=m.user_id) OR (b.blocked_id=${userId} AND b.user_id=m.user_id))
     AND m.created_at >= (SELECT notification_since FROM users WHERE id=${userId})
     AND NOT EXISTS(SELECT 1 FROM notification_deliveries nd WHERE nd.user_id=${userId} AND nd.message_id=m.id)
     ORDER BY m.created_at,m.id LIMIT 30
@@ -166,6 +163,12 @@ export async function featureApi(
         if (!file.published || !file.ready)
           throw new FeatureError(404, "Файл не найден.");
         if (file.chat_id) await membership(file.chat_id, userId);
+        else {
+          const [visible] =
+            await sql`SELECT 1 FROM posts p WHERE p.attachments @> ${sql.json([{ id: uploadId }])}::jsonb AND telejka_can_view(p.user_id,${userId}::uuid)
+          UNION ALL SELECT 1 FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.attachments @> ${sql.json([{ id: uploadId }])}::jsonb AND telejka_can_view(p.user_id,${userId}::uuid) AND telejka_can_view(c.user_id,${userId}::uuid) LIMIT 1`;
+          if (!visible) throw new FeatureError(404, "Файл недоступен.");
+        }
       }
       if (path.length === 2)
         return reply({
@@ -216,6 +219,7 @@ export async function featureApi(
   if (path[0] === "chats" && path[2] === "messages" && req.method === "POST") {
     const chatId = id.parse(path[1]);
     await membership(chatId, userId);
+    await canSendChat(chatId, userId);
     const data = z
       .object({
         envelope: envelopeSchema,
@@ -249,8 +253,10 @@ export async function featureApi(
       const [message] =
         await tx`INSERT INTO messages(conversation_id,user_id,body,envelope,client_id) VALUES (${chatId},${userId},'🔒 Зашифрованное сообщение',${tx.json(data.envelope)},${data.clientId}) ON CONFLICT(user_id,client_id) WHERE client_id IS NOT NULL DO UPDATE SET client_id=EXCLUDED.client_id RETURNING id`;
       if (data.attachmentIds.length) {
-        const claimed=await tx`UPDATE uploads SET published=true WHERE id IN ${tx(data.attachmentIds)} AND owner_id=${userId} AND published=false RETURNING id`;
-        if(claimed.length!==data.attachmentIds.length)throw new FeatureError(409,'Вложение уже опубликовано.');
+        const claimed =
+          await tx`UPDATE uploads SET published=true WHERE id IN ${tx(data.attachmentIds)} AND owner_id=${userId} AND published=false RETURNING id`;
+        if (claimed.length !== data.attachmentIds.length)
+          throw new FeatureError(409, "Вложение уже опубликовано.");
       }
       return message;
     });

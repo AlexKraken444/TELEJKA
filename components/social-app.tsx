@@ -1,4 +1,12 @@
 "use client";
+import {
+  DailyVisit,
+  Rewards,
+  PlusSettings,
+  ProfileActions,
+  ChatActions,
+  Reactions,
+} from "./community";
 import { PopularHashtags } from "./popular-hashtags";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
@@ -28,7 +36,7 @@ import {
   api,
   Avatar,
   Logo,
-  VerifiedBadge,
+  UserName,
   errorText,
   readAvatar,
   time,
@@ -37,7 +45,7 @@ import { ThemeToggle, Notifications, registerDevice } from "./preferences";
 import { FilePicker, uploadFiles, MediaList } from "./media";
 import { EncryptedMessage } from "./encrypted-message";
 import { encryptMessage, type PublicDevice } from "@/lib/crypto-chat";
-type Tab = "feed" | "chats" | "people" | "profile" | "account";
+type Tab = "rewards" | "feed" | "chats" | "people" | "profile" | "account";
 export function SocialApp({ initialUser }: { initialUser: User }) {
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -105,10 +113,12 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     { key: "feed" as const, label: "Лента", icon: Home },
     { key: "chats" as const, label: "Сообщения", icon: MessageCircle },
     { key: "people" as const, label: "Люди", icon: Users },
-    { key: "profile" as const, label: "Мой профиль", icon: Settings },
+    { key: "rewards" as const, label: "БАТОНчики", icon: Sparkles },
+    { key: "profile" as const, label: "Профиль", icon: Settings },
   ];
   return (
     <div className={`app-shell ${tab === "chats" ? "is-chat" : ""}`}>
+      <DailyVisit userId={user.id} />
       <Notifications
         userId={user.id}
         onOpen={(id) => {
@@ -147,8 +157,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             <Avatar user={user} size={38} />
             <span>
               <strong>
-                {user.name}
-                <VerifiedBadge userId={user.id} />
+                <UserName user={user} />
               </strong>
               <small>Мой профиль</small>
             </span>
@@ -238,7 +247,12 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             </div>
           </>
         )}
-        {tab === "profile" && <Profile user={user} onSaved={setUser} />}
+        {tab === "profile" && (
+          <>
+            <Profile user={user} onSaved={setUser} />
+          </>
+        )}
+        {tab === "rewards" && <Rewards onUpdated={setUser} />}
       </main>
       {tab !== "chats" && (
         <aside className="rightbar">
@@ -256,8 +270,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
               <Avatar user={person} size={38} />
               <span>
                 <strong>
-                  {person.name}
-                  <VerifiedBadge userId={person.id} />
+                  <UserName user={person} />
                 </strong>
                 <small>{person.bio || "Уже в TELEJKA"}</small>
               </span>
@@ -341,8 +354,7 @@ function Person({
       <div>
         <button className="author-name" onClick={onProfile}>
           <strong>
-            {person.name}
-            <VerifiedBadge userId={person.id} />
+            <UserName user={person} />
           </strong>
         </button>
         <p>{person.bio || ""}</p>
@@ -467,7 +479,8 @@ function Feed({
             <FilePicker files={files} onChange={setFiles} disabled={busy} />
             <div className="composer-bottom">
               <span>
-                <span className="live-dot" /> Видно всем
+                <span className="live-dot" />{" "}
+                {user.is_private ? "Для выбранных людей" : "Видно всем"}
                 {body.length > 0 && ` · ${body.length}/2000`}
               </span>
               <button
@@ -602,8 +615,7 @@ function PostCard({
       <div className="post-content">
         <div className="post-heading">
           <button className="author-name" onClick={() => onPerson(post.author)}>
-            {post.author.name}
-            <VerifiedBadge userId={post.author.id} />
+            <UserName user={post.author} />
           </button>
           {post.author.id === user.id && <span className="you-tag">ты</span>}
           <time dateTime={post.created_at}>{time(post.created_at)}</time>
@@ -627,6 +639,11 @@ function PostCard({
         </div>
         <p className="post-body">{post.body}</p>
         <MediaList items={post.attachments} />
+        <Reactions
+          path={"posts/" + post.id}
+          initial={post.reactions}
+          user={user}
+        />
         <div className="post-actions">
           <button
             className={liked ? "is-liked" : ""}
@@ -670,8 +687,7 @@ function PostCard({
                     onClick={() => onPerson(c.author)}
                   >
                     <strong>
-                      {c.author.name}
-                      <VerifiedBadge userId={c.author.id} />
+                      <UserName user={c.author} />
                     </strong>
                   </button>
                   <p>{c.body}</p>
@@ -756,8 +772,7 @@ function PublicProfile({
       <section className="public-profile">
         <Avatar user={profile} size={88} />
         <h2>
-          {profile.name}
-          <VerifiedBadge userId={profile.id} />
+          <UserName user={profile} />
         </h2>
         {profile.bio && <p className="profile-bio">{profile.bio}</p>}
         <p className="muted">
@@ -768,7 +783,11 @@ function PublicProfile({
             ? ` · В TELEJKA с ${new Intl.DateTimeFormat("ru", { month: "long", year: "numeric" }).format(new Date(profile.created_at))}`
             : ""}
         </p>
-        <button className="primary" onClick={onChat}>
+        <button
+          className="primary"
+          disabled={profile.can_view === false}
+          onClick={onChat}
+        >
           <MessageCircle size={18} />
           Написать сообщение
         </button>
@@ -778,8 +797,17 @@ function PublicProfile({
           </p>
         )}
       </section>
-      <h3 className="profile-posts-title">Публикации</h3>
-      <Feed user={user} authorId={person.id} onPerson={onPerson} />
+      <ProfileActions user={user} person={profile} onChanged={setProfile} />
+      {profile.can_view === false ? (
+        <p className="section-pad">
+          {profile.blocked ? "Пользователь заблокирован" : "Аккаунт закрыт 🔐"}
+        </p>
+      ) : (
+        <>
+          <h3 className="profile-posts-title">Публикации</h3>
+          <Feed user={user} authorId={person.id} onPerson={onPerson} />
+        </>
+      )}
     </>
   );
 }
@@ -908,6 +936,7 @@ function Profile({
           )}
         </button>
       </form>
+      <PlusSettings onSaved={onSaved}/>
       <h3 className="profile-posts-title">Твои публикации</h3>
       <Feed user={user} onPerson={() => {}} mine />
     </>
@@ -1010,16 +1039,13 @@ function Chats({
                 )}
                 <span>
                   <strong>
-                    {chatName(chat, user.id)}
-                    {!chat.is_group && (
-                      <VerifiedBadge
-                        userId={
-                          chat.participants.find((p) => p.id !== user.id)?.id
-                        }
-                      />
-                    )}
+                    {chat.is_group ? chatName(chat,user.id) : <UserName user={chat.participants.find(p=>p.id!==user.id)||user}/>}
                   </strong>
-                  <small>{chat.last_body === "🔒 Зашифрованное сообщение" ? "сообщение" : chat.last_body || "Нет сообщений"}</small>
+                  <small>
+                    {chat.last_body === "🔒 Зашифрованное сообщение"
+                      ? "сообщение"
+                      : chat.last_body || "Нет сообщений"}
+                  </small>
                 </span>
                 <ChevronRight size={15} />
               </button>
@@ -1039,6 +1065,15 @@ function Chats({
               chat={current}
               user={user}
               onPerson={onPerson}
+              onDeleted={async () => {
+                setSelected(null);
+                onSelected(null);
+                try {
+                  setChats(await api<Chat[]>("chats"));
+                } catch (e) {
+                  setError(errorText(e));
+                }
+              }}
               onBack={() => {
                 setSelected(null);
                 onSelected(null);
@@ -1072,12 +1107,14 @@ function Chats({
   );
 }
 function Conversation({
+  onDeleted,
   chat,
   user,
   onBack,
   onPerson,
 }: {
   chat: Chat;
+  onDeleted: () => void;
   user: User;
   onBack: () => void;
   onPerson: (u: User) => void;
@@ -1207,6 +1244,7 @@ function Conversation({
   return (
     <>
       <div className="conversation-heading">
+        <ChatActions chat={chat} user={user} onDeleted={onDeleted} />
         <button
           className="icon-button back-chat"
           onClick={onBack}
@@ -1216,12 +1254,7 @@ function Conversation({
         </button>
         <div>
           <strong>
-            {chatName(chat, user.id)}
-            {!chat.is_group && (
-              <VerifiedBadge
-                userId={chat.participants.find((p) => p.id !== user.id)?.id}
-              />
-            )}
+            {chat.is_group ? chatName(chat,user.id) : <UserName user={chat.participants.find(p=>p.id!==user.id)||user}/>}
           </strong>
           <small>
             {chat.is_group
@@ -1246,8 +1279,7 @@ function Conversation({
               className="member-link"
             >
               <Avatar user={p} size={25} />
-              {p.name}
-              <VerifiedBadge userId={p.id} />
+              <UserName user={p} />
               {p.id === user.id && " (ты)"}
             </button>
           ))}
@@ -1283,11 +1315,15 @@ function Conversation({
           >
             {chat.is_group && m.user_id !== user.id && (
               <strong>
-                {m.author.name}
-                <VerifiedBadge userId={m.author.id} />
+                <UserName user={m.author} />
               </strong>
             )}
             <EncryptedMessage message={m} chatId={chat.id} userId={user.id} />
+            <Reactions
+              path={"messages/" + m.id}
+              initial={m.reactions}
+              user={user}
+            />
             <time title={time(m.created_at)}>
               {new Intl.DateTimeFormat("ru", {
                 hour: "2-digit",
@@ -1492,8 +1528,7 @@ function NewChat({
             >
               <Avatar user={p} size={36} />
               <strong>
-                {p.name}
-                <VerifiedBadge userId={p.id} />
+                <UserName user={p} />
               </strong>
               <span
                 className={`checkbox ${selected.some((x) => x.id === p.id) ? "checked" : ""}`}

@@ -116,10 +116,13 @@ test(
       accounts.push({ id: res.body.id, cookie: res.cookie.split(";")[0] });
     }
     const [alice, bob, vera, outsider] = accounts;
-    for(const name of [' АЛИСА ','Алиса']){
-      const duplicate=await request('auth/register','POST',{name,password:'other-password-123'});
-      assert.equal(duplicate.status,409);
-      assert.match(duplicate.body.error,/имя уже занято/i);
+    for (const name of [" АЛИСА ", "Алиса"]) {
+      const duplicate = await request("auth/register", "POST", {
+        name,
+        password: "other-password-123",
+      });
+      assert.equal(duplicate.status, 409);
+      assert.match(duplicate.body.error, /имя уже занято/i);
     }
     assert.equal(
       (
@@ -166,15 +169,38 @@ test(
       alice.cookie,
     );
     assert.equal(post.status, 201);
-    const profile=await request(`users/${alice.id}`,'GET',undefined,bob.cookie);
-    assert.equal(profile.status,200);
-    assert.equal(profile.body.name,'Алиса');
-    assert.equal(profile.body.post_count,1);
-    assert.equal(profile.body.password_hash,undefined);
-    assert.equal((await request(`posts?author=${alice.id}`,'GET',undefined,bob.cookie)).body.length,1);
-    assert.equal((await request(`posts?author=${bob.id}`,'GET',undefined,alice.cookie)).body.length,0);
-    assert.equal((await request(`users/${crypto.randomUUID()}`,'GET',undefined,bob.cookie)).status,404);
-    assert.equal((await request(`users/${alice.id}`)).status,401);
+    const profile = await request(
+      `users/${alice.id}`,
+      "GET",
+      undefined,
+      bob.cookie,
+    );
+    assert.equal(profile.status, 200);
+    assert.equal(profile.body.name, "Алиса");
+    assert.equal(profile.body.post_count, 1);
+    assert.equal(profile.body.password_hash, undefined);
+    assert.equal(
+      (await request(`posts?author=${alice.id}`, "GET", undefined, bob.cookie))
+        .body.length,
+      1,
+    );
+    assert.equal(
+      (await request(`posts?author=${bob.id}`, "GET", undefined, alice.cookie))
+        .body.length,
+      0,
+    );
+    assert.equal(
+      (
+        await request(
+          `users/${crypto.randomUUID()}`,
+          "GET",
+          undefined,
+          bob.cookie,
+        )
+      ).status,
+      404,
+    );
+    assert.equal((await request(`users/${alice.id}`)).status, 401);
     const trends = await request("hashtags", "GET", undefined, alice.cookie);
     assert.equal(trends.status, 200);
     assert.deepEqual(trends.body, [
@@ -542,6 +568,486 @@ test(
       (await request("chats", "GET", undefined, outsider.cookie)).body.length,
       0,
     );
+
+    // Economy grants are serialized, idempotent and based on Moscow dates.
+    const visits = await Promise.all([
+      request("rewards/visit", "POST", {}, alice.cookie),
+      request("rewards/visit", "POST", {}, alice.cookie),
+    ]);
+    for (const v of visits)
+      assert.equal(v.status, 200, JSON.stringify(v.body) + output);
+    assert.equal(
+      visits.reduce((n, v) => n + v.body.granted, 0),
+      15,
+    );
+    assert.equal(
+      (await request("rewards", "GET", undefined, alice.cookie)).body.balance,
+      15,
+    );
+    assert.equal(
+      (await request("rewards/claim", "POST", {}, outsider.cookie)).status,
+      400,
+    );
+    await db.query(
+      "UPDATE wallets SET last_visit=(now() AT TIME ZONE 'Europe/Moscow')::date-1 WHERE user_id=$1",
+      [alice.id],
+    );
+    await db.query(
+      "DELETE FROM baton_ledger WHERE user_id=$1 AND ref LIKE 'visit:%'",
+      [alice.id],
+    );
+    assert.equal(
+      (await request("rewards/visit", "POST", {}, alice.cookie)).body.granted,
+      30,
+    );
+    await db.query(
+      "UPDATE wallets SET last_visit=(now() AT TIME ZONE 'Europe/Moscow')::date-3 WHERE user_id=$1",
+      [alice.id],
+    );
+    await db.query(
+      "DELETE FROM baton_ledger WHERE user_id=$1 AND ref LIKE 'visit:%'",
+      [alice.id],
+    );
+    assert.equal(
+      (await request("rewards/visit", "POST", {}, alice.cookie)).body.granted,
+      15,
+    );
+    await db.query(
+      "UPDATE daily_quests SET kind='comments',target=1,progress=0,claimed=false WHERE user_id=$1",
+      [alice.id],
+    );
+    assert.equal(
+      (
+        await request(
+          "posts/" + post.body.id + "/comments",
+          "POST",
+          { body: "Квест" },
+          alice.cookie,
+        )
+      ).status,
+      201,
+    );
+    assert.equal(
+      (await request("rewards", "GET", undefined, alice.cookie)).body.quest
+        .progress,
+      1,
+    );
+    await Promise.all([
+      request("rewards/claim", "POST", {}, alice.cookie),
+      request("rewards/claim", "POST", {}, alice.cookie),
+    ]);
+    assert.equal(
+      (await request("rewards", "GET", undefined, alice.cookie)).body.balance,
+      90,
+    );
+    assert.equal(
+      (
+        await request(
+          "plus/buy",
+          "POST",
+          { requestId: crypto.randomUUID() },
+          alice.cookie,
+        )
+      ).status,
+      400,
+    );
+    await db.query("UPDATE wallets SET balance=150 WHERE user_id=$1", [
+      alice.id,
+    ]);
+    const purchase = crypto.randomUUID();
+    for (let i = 0; i < 2; i++)
+      assert.equal(
+        (
+          await request(
+            "plus/buy",
+            "POST",
+            { requestId: purchase },
+            alice.cookie,
+          )
+        ).status,
+        200,
+      );
+    assert.equal(
+      (await request("rewards", "GET", undefined, alice.cookie)).body.balance,
+      50,
+    );
+    assert.equal(
+      (await request("me", "GET", undefined, alice.cookie)).body.plus_active,
+      true,
+    );
+    for (const emoji of ["😁", "😳", "🥺"])
+      assert.equal(
+        (
+          await request(
+            "posts/" + post.body.id + "/reactions",
+            "POST",
+            { emoji, active: true },
+            alice.cookie,
+          )
+        ).status,
+        200,
+      );
+    assert.equal(
+      (
+        await request(
+          "posts/" + post.body.id + "/reactions",
+          "POST",
+          { emoji: "😎", active: true },
+          alice.cookie,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await request(
+          "posts/" + post.body.id + "/reactions",
+          "POST",
+          { emoji: "👍", active: true },
+          bob.cookie,
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await request(
+          "messages/" + received.id + "/reactions",
+          "POST",
+          { emoji: "👍", active: true },
+          alice.cookie,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      (
+        await request(
+          "messages/" + received.id + "/reactions",
+          "GET",
+          undefined,
+          outsider.cookie,
+        )
+      ).status,
+      404,
+    );
+    assert.equal(
+      (await request("posts", "GET", undefined, alice.cookie)).body.find(
+        (p: any) => p.id === post.body.id,
+      ).reactions.length,
+      3,
+    );
+    assert.equal(
+      (
+        await request(
+          "users/" + bob.id + "/verification",
+          "PATCH",
+          { verified: true },
+          alice.cookie,
+        )
+      ).status,
+      403,
+    );
+    const ownerId = "5158ea3a-fcb5-44cb-8f29-362b94aa1744";
+    await db.query(
+      "INSERT INTO users(id,name,name_key,color) VALUES($1,'Владелец','владелец','#ffffff')",
+      [ownerId],
+    );
+    await db.query(
+      "INSERT INTO telejka_auth.credentials(user_id,password_hash) VALUES($1,$2)",
+      [ownerId, await bcrypt.hash("owner-password", 12)],
+    );
+    const ownerLogin = await request("auth/login", "POST", {
+      name: "Владелец",
+      password: "owner-password",
+    });
+    const ownerCookie = ownerLogin.cookie.split(";")[0];
+    assert.equal(ownerLogin.body.can_manage_verification, true);
+    for (const verified of [true, false]) {
+      assert.equal(
+        (
+          await request(
+            "users/" + bob.id + "/verification",
+            "PATCH",
+            { verified },
+            ownerCookie,
+          )
+        ).status,
+        200,
+      );
+      assert.equal(
+        (await request("users/" + bob.id, "GET", undefined, alice.cookie)).body
+          .verified,
+        verified,
+      );
+    }
+    const prefs = {
+      is_private: true,
+      name_color: "#ff0000",
+      allowed_ids: [bob.id],
+    };
+    assert.equal(
+      (await request("me/preferences", "PATCH", prefs, alice.cookie)).status,
+      200,
+    );
+    assert.equal(
+      (await request("me/preferences", "PATCH", prefs, vera.cookie)).status,
+      403,
+    );
+    const locked = await request(
+      "users/" + alice.id,
+      "GET",
+      undefined,
+      outsider.cookie,
+    );
+    assert.equal(locked.body.can_view, false);
+    assert.equal(locked.body.bio, "");
+    assert.equal(locked.body.post_count, 0);
+    assert.equal(
+      (
+        await request(
+          "posts?author=" + alice.id,
+          "GET",
+          undefined,
+          outsider.cookie,
+        )
+      ).body.length,
+      0,
+    );
+    assert.equal(
+      (await request("hashtags", "GET", undefined, outsider.cookie)).body
+        .length,
+      0,
+    );
+    assert.equal(
+      (
+        await request(
+          "posts/" + post.body.id + "/comments",
+          "GET",
+          undefined,
+          outsider.cookie,
+        )
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await request(
+          "posts/" + post.body.id + "/like",
+          "POST",
+          { liked: true },
+          outsider.cookie,
+        )
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await request(
+          "uploads/" + pub.body.id + "/0",
+          "GET",
+          undefined,
+          outsider.cookie,
+        )
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await request(
+          "uploads/" + pub.body.id + "/0",
+          "GET",
+          undefined,
+          bob.cookie,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      (
+        await request(
+          "chats",
+          "POST",
+          { userIds: [alice.id], isGroup: false },
+          outsider.cookie,
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await request(
+          "chats",
+          "POST",
+          { userIds: [alice.id], isGroup: true, title: "Обход" },
+          outsider.cookie,
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await request(
+          "users/" + bob.id + "/block",
+          "POST",
+          { blocked: true },
+          alice.cookie,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      (
+        await request(
+          "chats/" + direct.body.id + "/messages",
+          "POST",
+          { envelope, clientId: crypto.randomUUID() },
+          bob.cookie,
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (await request("posts?author=" + alice.id, "GET", undefined, bob.cookie))
+        .body.length,
+      0,
+    );
+    await request(
+      "users/" + bob.id + "/block",
+      "POST",
+      { blocked: false },
+      alice.cookie,
+    );
+    assert.ok(
+      (await request("posts?author=" + alice.id, "GET", undefined, bob.cookie))
+        .body.length > 0,
+    );
+    await db.query(
+      "UPDATE users SET plus_until=now()-interval '1 day' WHERE id=$1",
+      [alice.id],
+    );
+    assert.equal(
+      (await request("users/" + alice.id, "GET", undefined, outsider.cookie))
+        .body.can_view,
+      false,
+      "Expired PLUS must not expose private posts",
+    );
+    assert.equal(
+      (
+        await request(
+          "me/preferences",
+          "PATCH",
+          { is_private: false, name_color: null, allowed_ids: [] },
+          alice.cookie,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      (
+        await request(
+          "chats/" + direct.body.id,
+          "DELETE",
+          undefined,
+          alice.cookie,
+        )
+      ).body.result,
+      "hidden",
+    );
+    assert.equal(
+      (await request("chats", "GET", undefined, alice.cookie)).body.some(
+        (c: any) => c.id === direct.body.id,
+      ),
+      false,
+    );
+    assert.ok(
+      (
+        await request(
+          "chats/" + direct.body.id + "/messages",
+          "GET",
+          undefined,
+          alice.cookie,
+        )
+      ).body.length > 0,
+      "Removing a contact preserves message history",
+    );
+    assert.ok(
+      (
+        await request(
+          "chats/" + direct.body.id + "/messages",
+          "GET",
+          undefined,
+          bob.cookie,
+        )
+      ).body.length > 0,
+    );
+    assert.equal(
+      (
+        await request(
+          "chats/" + direct.body.id + "/messages",
+          "POST",
+          { envelope, clientId: crypto.randomUUID() },
+          bob.cookie,
+        )
+      ).status,
+      201,
+    );
+    assert.equal(
+      (await request("chats", "GET", undefined, alice.cookie)).body.some(
+        (c: any) => c.id === direct.body.id,
+      ),
+      true,
+    );
+    assert.equal(
+      (
+        await request(
+          "chats/" + group.body.id,
+          "DELETE",
+          undefined,
+          outsider.cookie,
+        )
+      ).status,
+      404,
+    );
+    assert.equal(
+      (await request("chats/" + group.body.id, "DELETE", undefined, bob.cookie))
+        .body.result,
+      "left",
+    );
+    assert.equal(
+      (
+        await request(
+          "chats/" + group.body.id + "/messages",
+          "GET",
+          undefined,
+          bob.cookie,
+        )
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await request(
+          "chats/" + group.body.id,
+          "DELETE",
+          undefined,
+          alice.cookie,
+        )
+      ).body.result,
+      "deleted",
+    );
+    assert.equal(
+      (
+        await request(
+          "chats/" + group.body.id + "/messages",
+          "GET",
+          undefined,
+          vera.cookie,
+        )
+      ).status,
+      404,
+    );
+
     const forged = await fetch(`${origin}/api/posts`, {
       method: "POST",
       headers: { Origin: "https://evil.example", Cookie: alice.cookie },

@@ -40,6 +40,21 @@ export function ensureDatabase() {
           );
           await tx`INSERT INTO telejka_migrations(name) VALUES ('encrypted-media-v1')`;
         }
+        const [communityDone] =
+          await tx`SELECT 1 FROM telejka_migrations WHERE name='community-v1'`;
+        const [badgesDone] =
+          await tx`SELECT 1 FROM telejka_migrations WHERE name='verification-v1'`;
+        if (!badgesDone) {
+          await tx`ALTER TABLE users ADD COLUMN IF NOT EXISTS verified boolean NOT NULL DEFAULT false`;
+          await tx`UPDATE users SET verified=true WHERE id='5158ea3a-fcb5-44cb-8f29-362b94aa1744'`;
+          await tx`INSERT INTO telejka_migrations(name) VALUES ('verification-v1')`;
+        }
+        if (!communityDone) {
+          await tx.unsafe(
+            await readFile(join(process.cwd(), "db", "community.sql"), "utf8"),
+          );
+          await tx`INSERT INTO telejka_migrations(name) VALUES ('community-v1')`;
+        }
       });
     })().catch((error) => {
       globalDb.telejkaSchema = undefined;

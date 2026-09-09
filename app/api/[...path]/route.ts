@@ -1,3 +1,4 @@
+import { communityApi, canContact, canReadPost } from "@/lib/community-api";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
@@ -5,6 +6,7 @@ import bcrypt from "bcryptjs";
 import sharp from "sharp";
 import { createHash, randomInt } from "node:crypto";
 import { db, databaseUrl, ensureDatabase } from "@/lib/db";
+import { canManageVerification } from "@/lib/verification";
 import { COOKIE, createSession, currentUser, hashToken } from "@/lib/auth";
 import {
   registerSchema,
@@ -214,6 +216,8 @@ async function handle(
         bio: user.bio,
         avatar: user.avatar,
         color: user.color,
+        verified: user.verified,
+        can_manage_verification: canManageVerification(user.id),
       });
     }
     const user = await currentUser();
@@ -223,6 +227,8 @@ async function handle(
       path[0] === "uploads" ? 1200 : writing ? 120 : 360,
       60,
     );
+    const community = await communityApi(req, path, input, user.id);
+    if (community) return community;
     const feature = await featureApi(req, path, input, user.id);
     if (feature) return feature;
     if (route === "auth/logout" && req.method === "POST") {
@@ -238,29 +244,56 @@ async function handle(
       const data = profileSchema.parse(input);
       const avatar = await safeAvatar(data.avatar);
       const [updated] =
-        await sql`UPDATE users SET name = ${data.name}, name_key = ${nameKey(data.name)}, bio = ${data.bio}, avatar = ${avatar} WHERE id = ${user.id} RETURNING id, name, bio, avatar, color`;
+        await sql`UPDATE users SET name = ${data.name}, name_key = ${nameKey(data.name)}, bio = ${data.bio}, avatar = ${avatar} WHERE id = ${user.id} RETURNING id, name, bio, avatar, color, verified`;
+      return json(await currentUser());
+    }
+    if (
+      path[0] === "users" &&
+      path.length === 3 &&
+      path[2] === "verification" &&
+      req.method === "PATCH"
+    ) {
+      if (!canManageVerification(user.id))
+        throw new ApiError(
+          403,
+          "Только владелец TELEJKA может управлять галочками.",
+        );
+      const id = idSchema.parse(path[1]);
+      const { verified } = z
+        .object({ verified: z.boolean() })
+        .strict()
+        .parse(input);
+      const [updated] =
+        await sql`UPDATE users SET verified=${verified} WHERE id=${id} RETURNING id,verified`;
+      if (!updated) throw new ApiError(404, "Пользователь не найден.");
       return json(updated);
     }
     if (path[0] === "users" && path.length === 2 && req.method === "GET") {
       const id = idSchema.parse(path[1]);
       const [profile] =
-        await sql`SELECT u.id,u.name,u.bio,u.avatar,u.color,u.created_at,(SELECT count(*)::int FROM posts p WHERE p.user_id=u.id) AS post_count FROM users u WHERE u.id=${id}`;
+        await sql`SELECT telejka_user(u.id,${user.id}::uuid) AS person,u.created_at,(SELECT count(*)::int FROM posts p WHERE p.user_id=u.id AND telejka_can_view(u.id,${user.id}::uuid)) AS post_count FROM users u WHERE u.id=${id}`;
       if (!profile) throw new ApiError(404, "Пользователь не найден.");
-      return json(profile);
+      return json({
+        ...profile.person,
+        created_at: profile.created_at,
+        post_count: profile.post_count,
+      });
     }
     if (route === "users" && req.method === "GET") {
       const search = (req.nextUrl.searchParams.get("q") ?? "")
         .trim()
         .slice(0, 32);
       return json(
-        await sql`SELECT id, name, bio, avatar, color FROM users WHERE id <> ${user.id} AND position(${nameKey(search)} in name_key) > 0 ORDER BY created_at DESC LIMIT 40`,
+        (
+          await sql`SELECT telejka_user(id,${user.id}::uuid) AS person FROM users WHERE id <> ${user.id} AND position(${nameKey(search)} in name_key) > 0 ORDER BY created_at DESC LIMIT 40`
+        ).map((r) => r.person),
       );
     }
     if (route === "hashtags" && req.method === "GET") {
       return json(
         await sql`SELECT lower(matches[2]) AS tag, count(DISTINCT p.id)::int AS posts
         FROM posts p CROSS JOIN LATERAL regexp_matches(p.body, '(^|[^[:alnum:]_])#([[:alnum:]_]+)', 'g') AS matches
-        GROUP BY lower(matches[2]) ORDER BY posts DESC, tag ASC LIMIT 10`,
+        WHERE telejka_can_view(p.user_id,${user.id}::uuid) GROUP BY lower(matches[2]) ORDER BY posts DESC, tag ASC LIMIT 10`,
       );
     }
     if (route === "posts" && req.method === "GET") {
@@ -272,7 +305,7 @@ async function handle(
       const authorParam = req.nextUrl.searchParams.get("author");
       const author = authorParam ? idSchema.parse(authorParam) : null;
       return json(
-        await sql`SELECT p.*, json_build_object('id',u.id,'name',u.name,'bio',u.bio,'avatar',u.avatar,'color',u.color) AS author, (SELECT count(*)::int FROM likes l WHERE l.post_id = p.id) AS likes, (SELECT count(*)::int FROM comments c WHERE c.post_id = p.id) AS comments, EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ${user.id}) AS liked FROM posts p JOIN users u ON u.id = p.user_id WHERE (${!mine} OR p.user_id = ${user.id}) AND (${author}::uuid IS NULL OR p.user_id=${author}::uuid) ORDER BY p.created_at DESC, p.id DESC LIMIT 20 OFFSET ${offset}`,
+        await sql`SELECT p.*, telejka_post_reactions(p.id,${user.id}::uuid) AS reactions, telejka_user(u.id,${user.id}::uuid) AS author, (SELECT count(*)::int FROM likes l WHERE l.post_id = p.id) AS likes, (SELECT count(*)::int FROM comments c WHERE c.post_id = p.id) AS comments, EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ${user.id}) AS liked FROM posts p JOIN users u ON u.id = p.user_id WHERE telejka_can_view(p.user_id,${user.id}::uuid) AND (${!mine} OR p.user_id = ${user.id}) AND (${author}::uuid IS NULL OR p.user_id=${author}::uuid) ORDER BY p.created_at DESC, p.id DESC LIMIT 20 OFFSET ${offset}`,
       );
     }
     if (route === "posts" && req.method === "POST") {
@@ -318,6 +351,7 @@ async function handle(
         });
         return json({ ok: true });
       }
+      await canReadPost(id, user.id);
       const [post] = await sql`SELECT id FROM posts WHERE id = ${id}`;
       if (!post) throw new ApiError(404, "Пост не найден.");
       if (path[2] === "like" && req.method === "POST") {
@@ -334,7 +368,7 @@ async function handle(
           Number(req.nextUrl.searchParams.get("offset")) || 0,
         );
         return json(
-          await sql`SELECT c.id, c.body, c.attachments, c.created_at, json_build_object('id',u.id,'name',u.name,'avatar',u.avatar,'color',u.color) AS author FROM comments c JOIN users u ON u.id = c.user_id WHERE c.post_id = ${id} ORDER BY c.created_at, c.id LIMIT 50 OFFSET ${offset}`,
+          await sql`SELECT c.id, c.body, c.attachments, c.created_at, telejka_user(u.id,${user.id}::uuid) AS author FROM comments c JOIN users u ON u.id = c.user_id WHERE c.post_id = ${id} AND telejka_can_view(c.user_id,${user.id}::uuid) ORDER BY c.created_at, c.id LIMIT 50 OFFSET ${offset}`,
         );
       }
       if (path[2] === "comments" && req.method === "POST") {
@@ -363,7 +397,7 @@ async function handle(
     }
     if (route === "chats" && req.method === "GET") {
       return json(
-        await sql`SELECT c.id, c.title, c.is_group, COALESCE(last.created_at,c.created_at) AS updated_at, last.body AS last_body, (SELECT json_agg(json_build_object('id',u.id,'name',u.name,'avatar',u.avatar,'color',u.color)) FROM members cm JOIN users u ON u.id = cm.user_id WHERE cm.conversation_id = c.id) AS participants FROM conversations c JOIN members m ON m.conversation_id = c.id AND m.user_id = ${user.id} LEFT JOIN LATERAL (SELECT body, created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC, id DESC LIMIT 1) last ON true ORDER BY updated_at DESC`,
+        await sql`SELECT c.id, c.title, c.is_group, c.created_by, COALESCE(last.created_at,c.created_at) AS updated_at, last.body AS last_body, (SELECT json_agg(telejka_user(u.id,${user.id}::uuid)) FROM members cm JOIN users u ON u.id = cm.user_id WHERE cm.conversation_id = c.id) AS participants FROM conversations c JOIN members m ON m.conversation_id = c.id AND m.user_id = ${user.id} LEFT JOIN LATERAL (SELECT body, created_at FROM messages WHERE conversation_id = c.id AND (m.cleared_at IS NULL OR created_at>m.cleared_at) ORDER BY created_at DESC, id DESC LIMIT 1) last ON true WHERE (m.hidden_at IS NULL OR last.created_at>m.hidden_at) ORDER BY updated_at DESC`,
       );
     }
     if (route === "chats" && req.method === "POST") {
@@ -382,12 +416,14 @@ async function handle(
       const found = await sql`SELECT id FROM users WHERE id IN ${sql(ids)}`;
       if (found.length !== ids.length)
         throw new ApiError(400, "Пользователь не найден.");
+      for (const id of ids) if (id !== user.id) await canContact(user.id, id);
       const chat = await sql.begin(async (tx) => {
         const key = data.isGroup ? null : [...ids].sort().join(":");
         const [created] =
           await tx`INSERT INTO conversations(title, is_group, direct_key, created_by) VALUES (${data.title ?? null}, ${data.isGroup}, ${key}, ${user.id}) ON CONFLICT (direct_key) DO UPDATE SET direct_key = EXCLUDED.direct_key RETURNING id`;
         for (const id of ids)
           await tx`INSERT INTO members(conversation_id, user_id) VALUES (${created.id}, ${id}) ON CONFLICT DO NOTHING`;
+        await tx`UPDATE members SET hidden_at=NULL WHERE conversation_id=${created.id} AND user_id=${user.id}`;
         return created;
       });
       return json(chat, 201);
@@ -395,7 +431,7 @@ async function handle(
     if (path[0] === "chats" && path[2] === "messages" && path.length === 3) {
       const id = idSchema.parse(path[1]);
       const [member] =
-        await sql`SELECT 1 FROM members WHERE conversation_id = ${id} AND user_id = ${user.id}`;
+        await sql`SELECT cleared_at FROM members WHERE conversation_id = ${id} AND user_id = ${user.id}`;
       if (!member) throw new ApiError(404, "Чат не найден.");
       if (req.method === "GET") {
         const before = req.nextUrl.searchParams.get("before");
@@ -403,7 +439,7 @@ async function handle(
           ? z.iso.datetime({ offset: true }).parse(before)
           : new Date(Date.now() + 60000).toISOString();
         const rows =
-          await sql`SELECT m.id, m.user_id, m.body, m.envelope, m.created_at, json_build_object('id',u.id,'name',u.name,'avatar',u.avatar,'color',u.color) AS author FROM messages m JOIN users u ON u.id = m.user_id WHERE m.conversation_id = ${id} AND m.created_at < ${cutoff} ORDER BY m.created_at DESC, m.id DESC LIMIT 100`;
+          await sql`SELECT telejka_message_reactions(m.id,${user.id}::uuid) AS reactions,m.id, m.user_id, m.body, m.envelope, m.created_at, telejka_user(u.id,${user.id}::uuid) AS author FROM messages m JOIN users u ON u.id = m.user_id WHERE m.conversation_id = ${id} AND (${member.cleared_at}::timestamptz IS NULL OR m.created_at>${member.cleared_at}::timestamptz) AND m.created_at < ${cutoff} ORDER BY m.created_at DESC, m.id DESC LIMIT 100`;
         return json(rows.reverse());
       }
       if (req.method === "POST") {
