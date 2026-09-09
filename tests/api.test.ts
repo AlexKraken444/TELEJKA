@@ -116,6 +116,11 @@ test(
       accounts.push({ id: res.body.id, cookie: res.cookie.split(";")[0] });
     }
     const [alice, bob, vera, outsider] = accounts;
+    for(const name of [' АЛИСА ','Алиса']){
+      const duplicate=await request('auth/register','POST',{name,password:'other-password-123'});
+      assert.equal(duplicate.status,409);
+      assert.match(duplicate.body.error,/имя уже занято/i);
+    }
     assert.equal(
       (
         await request("auth/register", "POST", {
@@ -161,6 +166,15 @@ test(
       alice.cookie,
     );
     assert.equal(post.status, 201);
+    const profile=await request(`users/${alice.id}`,'GET',undefined,bob.cookie);
+    assert.equal(profile.status,200);
+    assert.equal(profile.body.name,'Алиса');
+    assert.equal(profile.body.post_count,1);
+    assert.equal(profile.body.password_hash,undefined);
+    assert.equal((await request(`posts?author=${alice.id}`,'GET',undefined,bob.cookie)).body.length,1);
+    assert.equal((await request(`posts?author=${bob.id}`,'GET',undefined,alice.cookie)).body.length,0);
+    assert.equal((await request(`users/${crypto.randomUUID()}`,'GET',undefined,bob.cookie)).status,404);
+    assert.equal((await request(`users/${alice.id}`)).status,401);
     const trends = await request("hashtags", "GET", undefined, alice.cookie);
     assert.equal(trends.status, 200);
     assert.deepEqual(trends.body, [

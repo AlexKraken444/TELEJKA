@@ -15,6 +15,7 @@ import {
   Plus,
   Search,
   Send,
+  SendHorizontal,
   Settings,
   Sparkles,
   Trash2,
@@ -36,8 +37,26 @@ import { ThemeToggle, Notifications, registerDevice } from "./preferences";
 import { FilePicker, uploadFiles, MediaList } from "./media";
 import { EncryptedMessage } from "./encrypted-message";
 import { encryptMessage, type PublicDevice } from "@/lib/crypto-chat";
-type Tab = "feed" | "chats" | "people" | "profile";
+type Tab = "feed" | "chats" | "people" | "profile" | "account";
 export function SocialApp({ initialUser }: { initialUser: User }) {
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const update = () =>
+      document.documentElement.style.setProperty(
+        "--app-height",
+        `${viewport?.height ?? window.innerHeight}px`,
+      );
+    update();
+    viewport?.addEventListener("resize", update);
+    window.addEventListener("resize", update);
+    return () => {
+      viewport?.removeEventListener("resize", update);
+      window.removeEventListener("resize", update);
+      document.documentElement.style.removeProperty("--app-height");
+    };
+  }, []);
+  const [viewed, setViewed] = useState<User | null>(null),
+    [returnTab, setReturnTab] = useState<Tab>("feed");
   const [user, setUser] = useState(initialUser),
     [tab, setTab] = useState<Tab>("feed"),
     [error, setError] = useState(""),
@@ -72,6 +91,16 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
       setError(errorText(e));
     }
   }
+  function openProfile(person: User) {
+    if (person.id === user.id) {
+      setTab("profile");
+      return;
+    }
+    if (tab !== "account") setReturnTab(tab);
+    setViewed(person);
+    setTab("account");
+    window.scrollTo({ top: 0 });
+  }
   const nav = [
     { key: "feed" as const, label: "Лента", icon: Home },
     { key: "chats" as const, label: "Сообщения", icon: MessageCircle },
@@ -79,7 +108,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     { key: "profile" as const, label: "Мой профиль", icon: Settings },
   ];
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${tab === "chats" ? "is-chat" : ""}`}>
       <Notifications
         userId={user.id}
         onOpen={(id) => {
@@ -158,9 +187,24 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             </button>
           </div>
         )}
-        {tab === "feed" && <Feed user={user} onPerson={startChat} />}
+        {tab === "feed" && <Feed user={user} onPerson={openProfile} />}
+        {tab === "account" && viewed && (
+          <PublicProfile
+            key={viewed.id}
+            person={viewed}
+            user={user}
+            onBack={() => setTab(returnTab)}
+            onChat={() => startChat(viewed)}
+            onPerson={openProfile}
+          />
+        )}
         {tab === "chats" && (
-          <Chats user={user} initialChatId={chatId} onSelected={setChatId} />
+          <Chats
+            user={user}
+            initialChatId={chatId}
+            onSelected={setChatId}
+            onPerson={openProfile}
+          />
         )}
         {tab === "people" && (
           <>
@@ -179,6 +223,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
                   <Person
                     key={person.id}
                     person={person}
+                    onProfile={() => openProfile(person)}
                     onChat={() => startChat(person)}
                   />
                 ))}
@@ -206,7 +251,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             <button
               className="suggested"
               key={person.id}
-              onClick={() => startChat(person)}
+              onClick={() => openProfile(person)}
             >
               <Avatar user={person} size={38} />
               <span>
@@ -275,15 +320,31 @@ function Empty({
     </div>
   );
 }
-function Person({ person, onChat }: { person: User; onChat: () => void }) {
+function Person({
+  person,
+  onChat,
+  onProfile,
+}: {
+  person: User;
+  onChat: () => void;
+  onProfile: () => void;
+}) {
   return (
     <div className="person">
-      <Avatar user={person} />
+      <button
+        className="avatar-link"
+        onClick={onProfile}
+        aria-label={`Профиль ${person.name}`}
+      >
+        <Avatar user={person} />
+      </button>
       <div>
-        <strong>
-          {person.name}
-          <VerifiedBadge userId={person.id} />
-        </strong>
+        <button className="author-name" onClick={onProfile}>
+          <strong>
+            {person.name}
+            <VerifiedBadge userId={person.id} />
+          </strong>
+        </button>
         <p>{person.bio || ""}</p>
       </div>
       <button className="secondary" onClick={onChat}>
@@ -297,10 +358,12 @@ function Feed({
   user,
   onPerson,
   mine = false,
+  authorId,
 }: {
   user: User;
   onPerson: (u: User) => void;
   mine?: boolean;
+  authorId?: string;
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [posts, setPosts] = useState<Post[]>([]),
@@ -312,7 +375,9 @@ function Feed({
     [filter, setFilter] = useState(mine);
   async function refresh(offset = 0) {
     try {
-      const data = await api<Post[]>(`posts?offset=${offset}&mine=${filter}`);
+      const data = await api<Post[]>(
+        `posts?offset=${offset}&mine=${filter}&${authorId ? "author=" + authorId : ""}`,
+      );
       setPosts((v) => (offset ? [...v, ...data] : data));
       setMore(data.length === 20);
     } catch (e) {
@@ -324,7 +389,7 @@ function Feed({
   useEffect(() => {
     let active = true;
     setLoading(true);
-    api<Post[]>(`posts?mine=${filter}`)
+    api<Post[]>(`posts?mine=${filter}&${authorId ? "author=" + authorId : ""}`)
       .then((data) => {
         if (active) {
           setPosts(data);
@@ -340,7 +405,7 @@ function Feed({
     return () => {
       active = false;
     };
-  }, [filter]);
+  }, [filter, authorId]);
   async function publish(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
@@ -363,8 +428,8 @@ function Feed({
   }
   return (
     <>
-      {!mine && <Header title="Лента" />}
-      {!mine && (
+      {!mine && !authorId && <Header title="Лента" />}
+      {!mine && !authorId && (
         <div className="feed-tabs">
           <button
             className={!filter ? "selected" : ""}
@@ -387,7 +452,7 @@ function Feed({
           </button>
         </div>
       )}
-      {!mine && (
+      {!mine && !authorId && (
         <form className="composer" onSubmit={publish}>
           <Avatar user={user} />
           <div className="composer-inner">
@@ -527,13 +592,16 @@ function PostCard({
   }
   return (
     <article className="post">
-      <Avatar user={post.author} />
+      <button
+        className="avatar-link"
+        onClick={() => onPerson(post.author)}
+        aria-label={`Профиль ${post.author.name}`}
+      >
+        <Avatar user={post.author} />
+      </button>
       <div className="post-content">
         <div className="post-heading">
-          <button
-            className="author-name"
-            onClick={() => post.author.id !== user.id && onPerson(post.author)}
-          >
+          <button className="author-name" onClick={() => onPerson(post.author)}>
             {post.author.name}
             <VerifiedBadge userId={post.author.id} />
           </button>
@@ -589,12 +657,23 @@ function PostCard({
           <div className="comments">
             {comments.map((c) => (
               <div className="comment" key={c.id}>
-                <Avatar user={c.author} size={30} />
+                <button
+                  className="avatar-link"
+                  onClick={() => onPerson(c.author)}
+                  aria-label={`Профиль ${c.author.name}`}
+                >
+                  <Avatar user={c.author} size={30} />
+                </button>
                 <div>
-                  <strong>
-                    {c.author.name}
-                    <VerifiedBadge userId={c.author.id} />
-                  </strong>
+                  <button
+                    className="author-name"
+                    onClick={() => onPerson(c.author)}
+                  >
+                    <strong>
+                      {c.author.name}
+                      <VerifiedBadge userId={c.author.id} />
+                    </strong>
+                  </button>
                   <p>{c.body}</p>
                   <MediaList items={c.attachments} />
                   <small>{time(c.created_at)}</small>
@@ -631,6 +710,77 @@ function PostCard({
         )}
       </div>
     </article>
+  );
+}
+function PublicProfile({
+  person,
+  user,
+  onBack,
+  onChat,
+  onPerson,
+}: {
+  person: User;
+  user: User;
+  onBack: () => void;
+  onChat: () => void;
+  onPerson: (u: User) => void;
+}) {
+  const [profile, setProfile] = useState<User & { post_count?: number }>(
+      person,
+    ),
+    [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    api<User & { post_count: number }>(`users/${person.id}`)
+      .then((p) => {
+        if (active) setProfile(p);
+      })
+      .catch((e) => {
+        if (active) setError(errorText(e));
+      });
+    return () => {
+      active = false;
+    };
+  }, [person.id]);
+  return (
+    <>
+      <Header
+        title="Профиль"
+        action={
+          <button className="secondary" onClick={onBack}>
+            <ArrowLeft size={18} />
+            Назад
+          </button>
+        }
+      />
+      <section className="public-profile">
+        <Avatar user={profile} size={88} />
+        <h2>
+          {profile.name}
+          <VerifiedBadge userId={profile.id} />
+        </h2>
+        {profile.bio && <p className="profile-bio">{profile.bio}</p>}
+        <p className="muted">
+          {profile.post_count !== undefined
+            ? `Публикаций: ${profile.post_count}`
+            : ""}
+          {profile.created_at
+            ? ` · В TELEJKA с ${new Intl.DateTimeFormat("ru", { month: "long", year: "numeric" }).format(new Date(profile.created_at))}`
+            : ""}
+        </p>
+        <button className="primary" onClick={onChat}>
+          <MessageCircle size={18} />
+          Написать сообщение
+        </button>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+      </section>
+      <h3 className="profile-posts-title">Публикации</h3>
+      <Feed user={user} authorId={person.id} onPerson={onPerson} />
+    </>
   );
 }
 function Profile({
@@ -772,10 +922,12 @@ function Chats({
   user,
   initialChatId,
   onSelected,
+  onPerson,
 }: {
   user: User;
   initialChatId: string | null;
   onSelected: (id: string | null) => void;
+  onPerson: (u: User) => void;
 }) {
   const [chats, setChats] = useState<Chat[]>([]),
     [selected, setSelected] = useState<string | null>(initialChatId),
@@ -886,6 +1038,7 @@ function Chats({
               key={current.id}
               chat={current}
               user={user}
+              onPerson={onPerson}
               onBack={() => {
                 setSelected(null);
                 onSelected(null);
@@ -922,10 +1075,12 @@ function Conversation({
   chat,
   user,
   onBack,
+  onPerson,
 }: {
   chat: Chat;
   user: User;
   onBack: () => void;
+  onPerson: (u: User) => void;
 }) {
   const [files, setFiles] = useState<File[]>([]),
     [keyWarning, setKeyWarning] = useState<{
@@ -1085,12 +1240,16 @@ function Conversation({
       {showMembers && (
         <div className="members-panel">
           {chat.participants.map((p) => (
-            <div key={p.id}>
+            <button
+              key={p.id}
+              onClick={() => onPerson(p)}
+              className="member-link"
+            >
               <Avatar user={p} size={25} />
               {p.name}
               <VerifiedBadge userId={p.id} />
               {p.id === user.id && " (ты)"}
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -1111,7 +1270,11 @@ function Conversation({
         )}
         {loading && <p className="loading">Загружаем сообщения…</p>}
         {!loading && !messages.length && (
-          <Empty icon={<Send size={27} />} title="Нет сообщений" text="" />
+          <Empty
+            icon={<SendHorizontal size={28} strokeWidth={1.7} />}
+            title="Нет сообщений"
+            text=""
+          />
         )}
         {messages.map((m) => (
           <div

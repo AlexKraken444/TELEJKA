@@ -163,6 +163,10 @@ async function handle(
         "local";
       await rateLimit(`register:${ip}`, 15, 3600);
       const data = registerSchema.parse(input);
+      const [taken] =
+        await sql`SELECT 1 FROM users WHERE name_key=${nameKey(data.name)}`;
+      if (taken)
+        throw new ApiError(409, "Это имя уже занято. Выберите другое.");
       const avatar = await safeAvatar(data.avatar);
       const hash = await bcrypt.hash(data.password, 12);
       const colors = [
@@ -237,6 +241,13 @@ async function handle(
         await sql`UPDATE users SET name = ${data.name}, name_key = ${nameKey(data.name)}, bio = ${data.bio}, avatar = ${avatar} WHERE id = ${user.id} RETURNING id, name, bio, avatar, color`;
       return json(updated);
     }
+    if (path[0] === "users" && path.length === 2 && req.method === "GET") {
+      const id = idSchema.parse(path[1]);
+      const [profile] =
+        await sql`SELECT u.id,u.name,u.bio,u.avatar,u.color,u.created_at,(SELECT count(*)::int FROM posts p WHERE p.user_id=u.id) AS post_count FROM users u WHERE u.id=${id}`;
+      if (!profile) throw new ApiError(404, "Пользователь не найден.");
+      return json(profile);
+    }
     if (route === "users" && req.method === "GET") {
       const search = (req.nextUrl.searchParams.get("q") ?? "")
         .trim()
@@ -258,8 +269,10 @@ async function handle(
         Math.max(0, Number(req.nextUrl.searchParams.get("offset")) || 0),
       );
       const mine = req.nextUrl.searchParams.get("mine") === "true";
+      const authorParam = req.nextUrl.searchParams.get("author");
+      const author = authorParam ? idSchema.parse(authorParam) : null;
       return json(
-        await sql`SELECT p.*, json_build_object('id',u.id,'name',u.name,'bio',u.bio,'avatar',u.avatar,'color',u.color) AS author, (SELECT count(*)::int FROM likes l WHERE l.post_id = p.id) AS likes, (SELECT count(*)::int FROM comments c WHERE c.post_id = p.id) AS comments, EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ${user.id}) AS liked FROM posts p JOIN users u ON u.id = p.user_id WHERE (${!mine} OR p.user_id = ${user.id}) ORDER BY p.created_at DESC, p.id DESC LIMIT 20 OFFSET ${offset}`,
+        await sql`SELECT p.*, json_build_object('id',u.id,'name',u.name,'bio',u.bio,'avatar',u.avatar,'color',u.color) AS author, (SELECT count(*)::int FROM likes l WHERE l.post_id = p.id) AS likes, (SELECT count(*)::int FROM comments c WHERE c.post_id = p.id) AS comments, EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ${user.id}) AS liked FROM posts p JOIN users u ON u.id = p.user_id WHERE (${!mine} OR p.user_id = ${user.id}) AND (${author}::uuid IS NULL OR p.user_id=${author}::uuid) ORDER BY p.created_at DESC, p.id DESC LIMIT 20 OFFSET ${offset}`,
       );
     }
     if (route === "posts" && req.method === "POST") {
@@ -278,8 +291,10 @@ async function handle(
         const [created] =
           await tx`INSERT INTO posts(user_id,body,attachments) VALUES (${user.id},${body},${tx.json(attachments)}) RETURNING id`;
         if (attachments.length) {
-          const claimed=await tx`UPDATE uploads SET published=true WHERE id IN ${tx(attachments.map((a) => a.id))} AND published=false RETURNING id`;
-          if(claimed.length!==attachments.length)throw new ApiError(409,'Вложение уже опубликовано.');
+          const claimed =
+            await tx`UPDATE uploads SET published=true WHERE id IN ${tx(attachments.map((a) => a.id))} AND published=false RETURNING id`;
+          if (claimed.length !== attachments.length)
+            throw new ApiError(409, "Вложение уже опубликовано.");
         }
         return created;
       });
@@ -288,13 +303,18 @@ async function handle(
     if (path[0] === "posts" && path[1]) {
       const id = idSchema.parse(path[1]);
       if (path.length === 2 && req.method === "DELETE") {
-        await sql.begin(async tx=>{
-          const [post]=await tx`SELECT attachments FROM posts WHERE id=${id} AND user_id=${user.id} FOR UPDATE`;
-          if(!post)throw new ApiError(404,'Пост не найден.');
-          const comments=await tx`SELECT attachments FROM comments WHERE post_id=${id}`;
-          const ids=[post,...comments].flatMap(r=>(r.attachments as {id:string}[]).map(a=>a.id));
+        await sql.begin(async (tx) => {
+          const [post] =
+            await tx`SELECT attachments FROM posts WHERE id=${id} AND user_id=${user.id} FOR UPDATE`;
+          if (!post) throw new ApiError(404, "Пост не найден.");
+          const comments =
+            await tx`SELECT attachments FROM comments WHERE post_id=${id}`;
+          const ids = [post, ...comments].flatMap((r) =>
+            (r.attachments as { id: string }[]).map((a) => a.id),
+          );
           await tx`DELETE FROM posts WHERE id=${id}`;
-          if(ids.length)await tx`DELETE FROM uploads WHERE id IN ${tx(ids)} AND chat_id IS NULL`;
+          if (ids.length)
+            await tx`DELETE FROM uploads WHERE id IN ${tx(ids)} AND chat_id IS NULL`;
         });
         return json({ ok: true });
       }
@@ -332,8 +352,10 @@ async function handle(
         await sql.begin(async (tx) => {
           await tx`INSERT INTO comments(post_id,user_id,body,attachments) VALUES (${id},${user.id},${body},${tx.json(attachments)})`;
           if (attachments.length) {
-            const claimed=await tx`UPDATE uploads SET published=true WHERE id IN ${tx(attachments.map((a) => a.id))} AND published=false RETURNING id`;
-            if(claimed.length!==attachments.length)throw new ApiError(409,'Вложение уже опубликовано.');
+            const claimed =
+              await tx`UPDATE uploads SET published=true WHERE id IN ${tx(attachments.map((a) => a.id))} AND published=false RETURNING id`;
+            if (claimed.length !== attachments.length)
+              throw new ApiError(409, "Вложение уже опубликовано.");
           }
         });
         return json({ ok: true }, 201);
