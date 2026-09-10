@@ -1,4 +1,5 @@
 "use client";
+import { ProfileMusic } from "./profile-music";
 import {
   DailyVisit,
   Rewards,
@@ -775,6 +776,7 @@ function PublicProfile({
           <UserName user={profile} />
         </h2>
         {profile.bio && <p className="profile-bio">{profile.bio}</p>}
+        {profile.can_view !== false && <ProfileMusic userId={profile.id} />}
         <p className="muted">
           {profile.post_count !== undefined
             ? `Публикаций: ${profile.post_count}`
@@ -936,7 +938,10 @@ function Profile({
           )}
         </button>
       </form>
-      <PlusSettings onSaved={onSaved}/>
+      <div className="section-pad">
+        <ProfileMusic userId={user.id} editable enabled={user.plus_active} />
+      </div>
+      <PlusSettings onSaved={onSaved} />
       <h3 className="profile-posts-title">Твои публикации</h3>
       <Feed user={user} onPerson={() => {}} mine />
     </>
@@ -1039,7 +1044,16 @@ function Chats({
                 )}
                 <span>
                   <strong>
-                    {chat.is_group ? chatName(chat,user.id) : <UserName user={chat.participants.find(p=>p.id!==user.id)||user}/>}
+                    {chat.is_group ? (
+                      chatName(chat, user.id)
+                    ) : (
+                      <UserName
+                        user={
+                          chat.participants.find((p) => p.id !== user.id) ||
+                          user
+                        }
+                      />
+                    )}
                   </strong>
                   <small>
                     {chat.last_body === "🔒 Зашифрованное сообщение"
@@ -1254,7 +1268,13 @@ function Conversation({
         </button>
         <div>
           <strong>
-            {chat.is_group ? chatName(chat,user.id) : <UserName user={chat.participants.find(p=>p.id!==user.id)||user}/>}
+            {chat.is_group ? (
+              chatName(chat, user.id)
+            ) : (
+              <UserName
+                user={chat.participants.find((p) => p.id !== user.id) || user}
+              />
+            )}
           </strong>
           <small>
             {chat.is_group

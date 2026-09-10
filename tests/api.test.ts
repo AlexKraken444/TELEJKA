@@ -763,14 +763,58 @@ test(
     });
     const ownerCookie = ownerLogin.cookie.split(";")[0];
     assert.equal(ownerLogin.body.can_manage_verification, true);
-    assert.equal((await request('rewards','GET',undefined,ownerCookie)).body.unlimited,true);
-    assert.equal((await request('rewards','GET',undefined,alice.cookie)).body.unlimited,false);
-    const ownerPurchase=crypto.randomUUID();
-    for(let i=0;i<2;i++)assert.equal((await request('plus/buy','POST',{requestId:ownerPurchase},ownerCookie)).status,200);
-    assert.equal((await request('rewards','GET',undefined,ownerCookie)).body.balance,0);
-    assert.equal((await request('rewards','GET',undefined,ownerCookie)).body.plus_active,true);
-    assert.equal((await request('plus/buy','POST',{requestId:crypto.randomUUID(),unlimited:true},bob.cookie)).status,400);
-    assert.equal((await request('plus/buy','POST',{requestId:crypto.randomUUID()},bob.cookie)).status,400);
+    assert.equal(
+      (await request("rewards", "GET", undefined, ownerCookie)).body.unlimited,
+      true,
+    );
+    assert.equal(
+      (await request("rewards", "GET", undefined, alice.cookie)).body.unlimited,
+      false,
+    );
+    const ownerPurchase = crypto.randomUUID();
+    for (let i = 0; i < 2; i++)
+      assert.equal(
+        (
+          await request(
+            "plus/buy",
+            "POST",
+            { requestId: ownerPurchase },
+            ownerCookie,
+          )
+        ).status,
+        200,
+      );
+    assert.equal(
+      (await request("rewards", "GET", undefined, ownerCookie)).body.balance,
+      0,
+    );
+    assert.equal(
+      (await request("rewards", "GET", undefined, ownerCookie)).body
+        .plus_active,
+      true,
+    );
+    assert.equal(
+      (
+        await request(
+          "plus/buy",
+          "POST",
+          { requestId: crypto.randomUUID(), unlimited: true },
+          bob.cookie,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await request(
+          "plus/buy",
+          "POST",
+          { requestId: crypto.randomUUID() },
+          bob.cookie,
+        )
+      ).status,
+      400,
+    );
 
     for (const verified of [true, false]) {
       assert.equal(
@@ -790,6 +834,91 @@ test(
         verified,
       );
     }
+    assert.equal(
+      (
+        await request(
+          "uploads",
+          "POST",
+          { name: "song.mp3", mime: "audio/mpeg", size: 3 },
+          bob.cookie,
+        )
+      ).status,
+      403,
+    );
+    const song = await request(
+      "uploads",
+      "POST",
+      { name: "song.mp3", mime: "audio/mpeg", size: 3 },
+      alice.cookie,
+    );
+    assert.equal(song.status, 201);
+    assert.equal(
+      (
+        await request(
+          "me/music",
+          "POST",
+          { uploadId: song.body.id },
+          alice.cookie,
+        )
+      ).status,
+      400,
+    );
+    await request(
+      "uploads/" + song.body.id + "/0",
+      "POST",
+      { data: "AQID" },
+      alice.cookie,
+    );
+    await request(
+      "uploads/" + song.body.id + "/complete",
+      "POST",
+      {},
+      alice.cookie,
+    );
+    assert.equal(
+      (
+        await request(
+          "me/music",
+          "POST",
+          { uploadId: song.body.id },
+          ownerCookie,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await request(
+          "me/music",
+          "POST",
+          { uploadId: song.body.id },
+          alice.cookie,
+        )
+      ).status,
+      200,
+    );
+    assert.equal(
+      (
+        await request(
+          "users/" + alice.id + "/music",
+          "GET",
+          undefined,
+          bob.cookie,
+        )
+      ).body.name,
+      "song.mp3",
+    );
+    assert.equal(
+      (
+        await request(
+          "uploads/" + song.body.id + "/0",
+          "GET",
+          undefined,
+          bob.cookie,
+        )
+      ).status,
+      200,
+    );
     const prefs = {
       is_private: true,
       name_color: "#ff0000",
@@ -802,6 +931,28 @@ test(
     assert.equal(
       (await request("me/preferences", "PATCH", prefs, vera.cookie)).status,
       403,
+    );
+    assert.equal(
+      (
+        await request(
+          "users/" + alice.id + "/music",
+          "GET",
+          undefined,
+          outsider.cookie,
+        )
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await request(
+          "uploads/" + song.body.id + "/0",
+          "GET",
+          undefined,
+          outsider.cookie,
+        )
+      ).status,
+      404,
     );
     const locked = await request(
       "users/" + alice.id,
@@ -1057,6 +1208,26 @@ test(
       404,
     );
 
+    assert.equal(
+      (
+        await request(
+          "users/" + alice.id + "/music",
+          "GET",
+          undefined,
+          bob.cookie,
+        )
+      ).body,
+      null,
+    );
+    assert.equal(
+      (await request("me/music", "DELETE", undefined, alice.cookie)).status,
+      200,
+    );
+    assert.equal(
+      (await request("uploads/" + song.body.id, "GET", undefined, alice.cookie))
+        .status,
+      404,
+    );
     const forged = await fetch(`${origin}/api/posts`, {
       method: "POST",
       headers: { Origin: "https://evil.example", Cookie: alice.cookie },

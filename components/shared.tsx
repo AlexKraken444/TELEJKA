@@ -119,6 +119,16 @@ export function UserName({ user }: { user: User }) {
   return (
     <span style={{ color: user.name_color || undefined }}>
       {user.name}
+      {user.plus_active && (
+        <span
+          className="plus-badge"
+          role="img"
+          aria-label="TELEJKA+"
+          title="TELEJKA+"
+        >
+          +
+        </span>
+      )}
       <VerifiedBadge verified={user.verified} />
     </span>
   );

@@ -124,6 +124,12 @@ export async function featureApi(
     if (data.chatId) await membership(data.chatId, userId);
     else if (
       ![
+        "audio/mpeg",
+        "audio/mp4",
+        "audio/ogg",
+        "audio/wav",
+        "audio/x-wav",
+        "audio/webm",
         "image/jpeg",
         "image/png",
         "image/webp",
@@ -138,6 +144,12 @@ export async function featureApi(
         400,
         "Для постов и комментариев разрешены фото и видео.",
       );
+    if (!data.chatId && data.mime.startsWith("audio/")) {
+      const [me] =
+        await sql`SELECT plus_until>now() active FROM users WHERE id=${userId}`;
+      if (!me?.active)
+        throw new FeatureError(403, "Музыка доступна с TELEJKA+.");
+    }
     const [created] = await sql.begin(async (tx) => {
       await tx`SELECT id FROM users WHERE id=${userId} FOR UPDATE`;
       const [usage] =
@@ -166,7 +178,7 @@ export async function featureApi(
         else {
           const [visible] =
             await sql`SELECT 1 FROM posts p WHERE p.attachments @> ${sql.json([{ id: uploadId }])}::jsonb AND telejka_can_view(p.user_id,${userId}::uuid)
-          UNION ALL SELECT 1 FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.attachments @> ${sql.json([{ id: uploadId }])}::jsonb AND telejka_can_view(p.user_id,${userId}::uuid) AND telejka_can_view(c.user_id,${userId}::uuid) LIMIT 1`;
+          UNION ALL SELECT 1 FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.attachments @> ${sql.json([{ id: uploadId }])}::jsonb AND telejka_can_view(p.user_id,${userId}::uuid) AND telejka_can_view(c.user_id,${userId}::uuid) UNION ALL SELECT 1 FROM profile_music m JOIN users u ON u.id=m.user_id WHERE m.upload_id=${uploadId} AND u.plus_until>now() AND telejka_can_view(u.id,${userId}::uuid) LIMIT 1`;
           if (!visible) throw new FeatureError(404, "Файл недоступен.");
         }
       }
