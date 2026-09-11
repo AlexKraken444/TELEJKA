@@ -1,4 +1,5 @@
 "use client";
+import {ProfileMusic} from "./profile-music";
 import { useEffect, useRef, useState } from "react";
 import type { User, Reaction, Chat } from "@/lib/types";
 import { api, errorText, UserName } from "./shared";
@@ -251,7 +252,7 @@ type Preferences = {
   allowed: User[];
   blocked: User[];
 };
-export function PlusSettings({ onSaved }: { onSaved: (u: User) => void }) {
+export function PlusSettings({ userId, onSaved }: { userId:string; onSaved: (u: User) => void }) {
   const [data, setData] = useState<Preferences | null>(null),
     [people, setPeople] = useState<User[]>([]),
     [query, setQuery] = useState(""),
@@ -379,7 +380,7 @@ export function PlusSettings({ onSaved }: { onSaved: (u: User) => void }) {
               </div>
             </>
           )}
-          </div><div className="settings-save"><button className="primary" disabled={busy} onClick={save}>
+          </div><div className="settings-card"><div className="settings-section-title"><span>03</span><div><h2>Музыка</h2><p>Композиция на странице твоего профиля</p></div></div><ProfileMusic userId={userId} editable enabled={data.plus_active}/></div><div className="settings-save"><button className="primary" disabled={busy} onClick={save}>
             Сохранить настройки
           </button>
           {saved && <p role="status">Сохранено</p>}</div>

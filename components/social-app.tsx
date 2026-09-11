@@ -250,7 +250,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             </div>
           </>
         )}
-        {tab === "plus" && <><Header title="TELEJKA+" subtitle="Подписка, оформление и приватность"/><div className="plus-intro section-pad"><span className="plus-emblem" aria-hidden="true"><i className="centered-plus"/></span><div><h2>{user.plus_active?"Твоя TELEJKA+":"Больше возможностей"}</h2><p>{user.plus_active?"Настрой подписку под себя.":"Реакции, цвет имени, музыка и закрытый профиль."}</p></div><button className="secondary" onClick={()=>setTab("rewards")}>{user.plus_active?"Продлить":"Подключить"}</button></div><PlusSettings onSaved={setUser}/><div className="section-pad"><ProfileMusic userId={user.id} editable enabled={user.plus_active}/></div></>}
+        {tab === "plus" && <><Header title="TELEJKA+" subtitle="Подписка, оформление и приватность"/><div className="plus-intro section-pad"><span className="plus-emblem" aria-hidden="true"><i className="centered-plus"/></span><div><h2>{user.plus_active?"Твоя TELEJKA+":"Больше возможностей"}</h2><p>{user.plus_active?"Настрой подписку под себя.":"Реакции, цвет имени, музыка и закрытый профиль."}</p></div><button className="secondary" onClick={()=>setTab("rewards")}>{user.plus_active?"Продлить":"Подключить"}</button></div><PlusSettings userId={user.id} onSaved={setUser}/></>}
         {tab === "profile" && (
           <>
             <Profile user={user} onSaved={setUser} />
