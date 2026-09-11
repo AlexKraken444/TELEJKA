@@ -1,5 +1,5 @@
 "use client";
-import {DesktopDownload} from "./desktop-download";
+
 import {PushSettings,PushSync} from "./push-settings";
 import { ProfileMusic } from "./profile-music";
 import {
@@ -954,7 +954,7 @@ function Profile({
       <div className="section-pad">
         <ProfileMusic userId={user.id} />
       </div>
-      <DesktopDownload/><PushSettings userId={user.id}/><BlockedUsers/>
+      <PushSettings userId={user.id}/><BlockedUsers/>
       <h3 className="profile-posts-title">Твои публикации</h3>
       <Feed user={user} onPerson={() => {}} mine />
     </>

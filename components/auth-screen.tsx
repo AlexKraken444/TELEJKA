@@ -1,4 +1,5 @@
 "use client";
+import {InstallApp} from "./install-app";
 import { useState, type FormEvent } from "react";
 import {
   ArrowUpRight,
@@ -45,6 +46,7 @@ export function AuthScreen() {
           <Logo />
           <ThemeToggle />
         </div>
+        <InstallApp />
         <div className="auth-top">
           {login ? "Ещё не с нами?" : "Уже есть аккаунт?"}{" "}
           <button
@@ -165,7 +167,7 @@ export function AuthScreen() {
                 : "Вход сохраняется на этом устройстве."}
             </p>
           </form>
-          <a className="desktop-auth-download" href="/downloads/TELEJKA-Setup.exe" download="TELEJKA-Setup.exe">Скачать TELEJKA для Windows</a>
+
         </div>
       </section>
     </main>

@@ -20,7 +20,7 @@ static class Telejka {
  static void Launch() {
   string browser=Browser();
   if(browser==null)throw new Exception("Для TELEJKA нужен Microsoft Edge или Google Chrome. Установите браузер и запустите приложение ещё раз.");
-  Process.Start(new ProcessStartInfo(browser,"--app=https://telejka.vercel.app/feed") {UseShellExecute=true});
+  Process.Start(new ProcessStartInfo(browser,"https://telejka.vercel.app/feed") {UseShellExecute=true});
  }
  static void Shortcut(string folder) {
   string path=Path.Combine(folder,"TELEJKA.lnk");
@@ -42,7 +42,7 @@ static class Telejka {
     form.MaximizeBox=false;form.StartPosition=FormStartPosition.CenterScreen;form.Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
     form.BackColor=Color.FromArgb(243,248,235);form.Font=new Font("Segoe UI",10);
     var title=new Label{Text="TELEJKA для Windows",Left=26,Top=24,Width=390,Height=35,Font=new Font("Segoe UI",18,FontStyle.Bold)};
-    var description=new Label{Text="Отдельное окно, ярлык в меню «Пуск» и на рабочем столе.\n\nРаботает через Edge или Chrome. Нужен интернет.",Left=28,Top=75,Width=385,Height=90};
+    var description=new Label{Text="Ярлык в меню «Пуск» и на рабочем столе.\n\nОткрывает сайт в браузере. Нужен интернет.",Left=28,Top=75,Width=385,Height=90};
     var install=new Button{Text="Установить и открыть",Left=28,Top=182,Width=250,Height=38,BackColor=Color.FromArgb(205,236,158)};
     install.Click+=(sender,e)=>{try{if(Browser()==null)throw new Exception("Сначала установите Microsoft Edge или Google Chrome.");Directory.CreateDirectory(AppDir);File.Copy(Application.ExecutablePath,Target,true);Shortcut(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));Shortcut(Environment.GetFolderPath(Environment.SpecialFolder.Programs));Launch();form.Close();}catch(Exception error){MessageBox.Show(error.Message,"TELEJKA",MessageBoxButtons.OK,MessageBoxIcon.Error);}};
     form.Controls.AddRange(new Control[]{title,description,install});Application.Run(form);
