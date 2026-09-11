@@ -165,6 +165,7 @@ export function AuthScreen() {
                 : "Вход сохраняется на этом устройстве."}
             </p>
           </form>
+          <a className="desktop-auth-download" href="/downloads/TELEJKA-Setup.exe" download="TELEJKA-Setup.exe">Скачать TELEJKA для Windows</a>
         </div>
       </section>
     </main>
