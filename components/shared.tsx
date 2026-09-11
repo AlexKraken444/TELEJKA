@@ -1,4 +1,5 @@
 "use client";
+import type { CSSProperties } from "react";
 import type { User } from "@/lib/types";
 import { BadgeCheck } from "lucide-react";
 export function VerifiedBadge({ verified }: { verified?: boolean }) {
@@ -51,11 +52,10 @@ export function Avatar({
     <span
       className="avatar"
       style={{
-        width: size,
-        height: size,
+        "--avatar-size": `${size}px`,
         background: user.color,
         fontSize: size * 0.4,
-      }}
+      } as CSSProperties}
     >
       {user.avatar ? (
         <img src={user.avatar} alt={`Аватар ${user.name}`} />
@@ -69,8 +69,8 @@ export function Logo() {
   return (
     <a href="/" className="brand" aria-label="TELEJKA — главная">
       <span className="logo-crop">
-        <img className="logo-light" src="/telejka-logo.png" alt="" />
-        <img className="logo-dark" src="/telejka-logo-white.png" alt="" />
+        <img className="logo-light" src="/telejka-mark.png" alt="" />
+        <img className="logo-dark" src="/telejka-mark-white.png" alt="" />
       </span>
       <span>
         telejka<span className="brand-dot">.</span>
