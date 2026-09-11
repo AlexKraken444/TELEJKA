@@ -15,6 +15,27 @@ const json=(v:unknown)=>NextResponse.json(v,{headers:{'Cache-Control':'no-store'
 export async function pushApi(req:NextRequest,path:string[],input:Record<string,unknown>,userId:string){
  if(path[0]!=='push')return;
  const sql=db();
+ if(path.join('/')==='push/status'&&req.method==='GET'){
+  const token=req.cookies.get(COOKIE)?.value;
+  const rows=token?await sql`SELECT id FROM push_subscriptions WHERE user_id=${userId} AND session_hash=${hashToken(token)}`:[];
+  return json({connected:rows.length>0});
+ }
+ if(path.join('/')==='push/test'&&req.method==='POST'){
+  const token=req.cookies.get(COOKIE)?.value;
+  const subs=token?await sql`SELECT * FROM push_subscriptions WHERE user_id=${userId} AND session_hash=${hashToken(token)}`:[];
+  if(!subs.length)throw new FeatureError(409,'Это устройство не подключено к серверу. Нажмите «Включить уведомления».');
+  const [limit]=await sql`INSERT INTO rate_limits(key,count,resets_at) VALUES (${'push-test:'+userId},1,now()+interval '1 minute') ON CONFLICT(key) DO UPDATE SET count=CASE WHEN rate_limits.resets_at<now() THEN 1 ELSE rate_limits.count+1 END,resets_at=CASE WHEN rate_limits.resets_at<now() THEN now()+interval '1 minute' ELSE rate_limits.resets_at END RETURNING count`;
+  if(limit.count>3)throw new FeatureError(429,'Подождите минуту перед следующей проверкой.');
+  const keys=await vapid();
+  for(const sub of subs){try{
+   await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},JSON.stringify({userId,messageId:crypto.randomUUID()}),{vapidDetails:{subject:'https://telejka.vercel.app',publicKey:keys.public_key,privateKey:keys.private_key},TTL:300,urgency:'high',timeout:8000});
+  }catch(error){
+   const status=(error as {statusCode?:number}).statusCode;
+   if(status===404||status===410){await sql`DELETE FROM push_subscriptions WHERE id=${sub.id}`;throw new FeatureError(409,'Подключение устарело. Отключите уведомления и включите снова.');}
+   throw new FeatureError(502,'Служба push не приняла уведомление'+(status?' (код '+status+')':' — соединение прервано')+'. Повторите подключение.');
+  }}
+  return json({ok:true});
+ }
  if(path.join('/')==='push/key'&&req.method==='GET'){const keys=await vapid();return json({publicKey:keys.public_key})}
  if(path.join('/')==='push/subscription'&&req.method==='POST'){
   const data=pushSubscriptionSchema.parse(input),token=req.cookies.get(COOKIE)?.value;

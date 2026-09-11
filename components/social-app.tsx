@@ -33,6 +33,7 @@ import {
   Sparkles,
   Trash2,
   Users,
+  UserRound,
   X,
   Camera,
 } from "lucide-react";
@@ -126,11 +127,11 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     { key: "chats" as const, label: "Сообщения", icon: MessageCircle },
     { key: "people" as const, label: "Люди", icon: Users },
     { key: "rewards" as const, label: "БАТОНчики", icon: Sparkles },
-    { key: "profile" as const, label: "Профиль", icon: Users },
+    { key: "profile" as const, label: "Профиль", icon: UserRound },
     { key: "plus" as const, label: "TELEJKA+", icon: Settings },
   ];
   return (
-    <div className={`app-shell ${tab === "chats" ? "is-chat" : ""}`}>
+    <div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
       <PushSync userId={user.id}/><DailyVisit userId={user.id} />
       <Notifications
         userId={user.id}
@@ -145,7 +146,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           {nav.map((item) => (
             <button
               key={item.key}
-              className={`nav-item ${tab === item.key ? "active" : ""}`}
+              className={`nav-item ${item.key === "rewards" || item.key === "plus" ? "mobile-extra" : ""} ${tab === item.key || (item.key === "profile" && (tab === "plus" || tab === "rewards")) ? "active" : ""}`}
               onClick={() => setTab(item.key)}
             >
               <item.icon size={21} />
@@ -209,7 +210,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             </button>
           </div>
         )}
-        {tab === "feed" && <><div className="feed-install"><InstallApp /></div><Feed user={user} onPerson={openProfile} /></>}
+        {tab === "feed" && <><div className="feed-install"><InstallApp /><details className="feed-push-details"><summary>Уведомления на телефон</summary><PushSettings userId={user.id} compact /></details></div><Feed user={user} onPerson={openProfile} /></>}
         {tab === "account" && viewed && (
           <PublicProfile
             key={viewed.id}
@@ -261,6 +262,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           </>
         )}
         {tab === "plus" && <><Header title="TELEJKA+" subtitle="Подписка, оформление и приватность"/><div className="plus-intro section-pad"><span className="plus-emblem" aria-hidden="true"><i className="centered-plus"/></span><div><h2>{user.plus_active?"Твоя TELEJKA+":"Больше возможностей"}</h2><p>{user.plus_active?"Настрой подписку под себя.":"Реакции, цвет имени, музыка и закрытый профиль."}</p></div><button className="secondary" onClick={()=>setTab("rewards")}>{user.plus_active?"Продлить":"Подключить"}</button></div><PlusSettings userId={user.id} onSaved={setUser}/></>}
+        {(tab === "profile" || tab === "plus" || tab === "rewards") && <nav className="mobile-settings-tabs" aria-label="Настройки аккаунта"><button className={tab==='profile'?'active':''} onClick={()=>setTab('profile')}>Профиль</button><button className={tab==='rewards'?'active':''} onClick={()=>setTab('rewards')}>БАТОНчики</button><button className={tab==='plus'?'active':''} onClick={()=>setTab('plus')}>TELEJKA+</button></nav>}
         {tab === "profile" && (
           <>
             <Profile user={user} onSaved={setUser} />
@@ -373,7 +375,7 @@ function Person({
         </button>
         <p>{person.bio || ""}</p>
       </div>
-      <button className="secondary" onClick={onChat}>
+      <button className="secondary" aria-label={`Написать ${person.name}`} onClick={onChat}>
         <MessageCircle size={16} />
         <span>Написать</span>
       </button>
@@ -1004,6 +1006,7 @@ function Chats({
       clearInterval(timer);
     };
   }, []);
+  const [filter,setFilter]=useState<'all'|'direct'|'groups'>('all');
   const current = chats.find((c) => c.id === selected);
   return (
     <>
@@ -1032,7 +1035,9 @@ function Chats({
               onChange={(e) => setSearch(e.target.value)}
             />
           </label>
+          <div className="chat-filters" aria-label="Фильтр чатов">{([{key:"all",label:"Все"},{key:"direct",label:"Личные"},{key:"groups",label:"Группы"}] as const).map(item=><button key={item.key} aria-pressed={filter===item.key} className={filter===item.key?"active":""} onClick={()=>setFilter(item.key)}>{item.label}</button>)}</div>
           {chats
+            .filter(c=>filter==="all"||(filter==="groups"?c.is_group:!c.is_group))
             .filter((c) =>
               chatName(c, user.id).toLowerCase().includes(search.toLowerCase()),
             )
@@ -1075,7 +1080,7 @@ function Chats({
                       : chat.last_body || "Нет сообщений"}
                   </small>
                 </span>
-                <ChevronRight size={15} />
+                <time className="chat-row-time">{new Date(chat.updated_at).toLocaleDateString()===new Date().toLocaleDateString()?new Date(chat.updated_at).toLocaleTimeString("ru",{hour:"2-digit",minute:"2-digit"}):new Date(chat.updated_at).toLocaleDateString("ru",{day:"numeric",month:"short"})}</time>
               </button>
             ))}
           {!chats.length && (

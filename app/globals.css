@@ -2969,3 +2969,71 @@ html body .plus-emblem{width:54px;height:54px;min-width:54px;min-height:54px}
 .install-app{width:100%;max-width:460px;margin:0 auto 22px}.install-app-button{display:flex;justify-content:center;align-items:center;gap:10px;width:100%;min-height:46px;padding:12px 18px}.install-app-help{margin-top:12px;padding:18px;border:1px solid var(--line);border-radius:18px;background:var(--bg);line-height:1.6;overflow-wrap:anywhere}.install-app-help p{margin-bottom:12px}.install-app-help .muted{font-size:13px}
 
 .feed-install{padding:18px 20px 0}.feed-install .install-app{max-width:none;margin-bottom:12px}.session-retry{max-width:520px;margin:12vh auto;padding:28px;display:flex;flex-direction:column;gap:18px}.session-retry p{line-height:1.6}
+/* Mobile application layout: compact content, clear hierarchy and safe areas. */
+.mobile-settings-tabs{display:none}.chat-filters{display:flex;gap:6px;padding:0 12px 10px}.chat-filters button{flex:1;min-height:38px;border:0;border-radius:12px;background:transparent;color:var(--muted);font:inherit;font-size:13px}.chat-filters button.active{background:var(--green);color:var(--ink)}.chat-row-time{font-size:11px;color:var(--muted);white-space:nowrap;align-self:flex-start;margin-top:5px}.feed-push-details>summary{cursor:pointer;font-size:13px;min-height:36px;padding:8px 0;color:var(--ink)}.push-compact .settings-card{padding:16px}.push-phone-help{font-size:13px;line-height:1.6}.push-phone-help summary{cursor:pointer;min-height:40px;padding:8px 0}.push-phone-help p{margin:10px 0}.push-compact .push-settings{gap:10px}
+@media(max-width:700px){
+ html:root:root body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-weight:400}
+ html:root:root body .app-shell{display:block;width:100%;max-width:none;margin:0;padding:0;gap:0;--mobile-nav-height:calc(64px + env(safe-area-inset-bottom,0px))}
+ html:root:root body .main-content{width:100%;max-width:100%;min-width:0;border:0;border-radius:0;box-shadow:none;background:var(--bg);padding:0 0 calc(78px + env(safe-area-inset-bottom,0px));min-height:100dvh}
+ html:root:root body .sidebar{position:fixed;inset:auto 8px max(6px,env(safe-area-inset-bottom,0px));height:62px;width:calc(100% - 16px);padding:4px 6px;border-radius:26px;background:var(--glass);border:1px solid var(--glass-edge);box-shadow:0 4px 20px #00000012;z-index:40;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+ html:root:root body .sidebar nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;width:100%;margin:0;padding:0}
+ html:root:root body .sidebar .mobile-extra{display:none}
+ html:root:root body .sidebar .nav-item{height:52px;min-height:52px;padding:5px 2px;gap:3px;border-radius:21px;display:flex;flex-direction:column;justify-content:center;font-weight:500}
+ html:root:root body .sidebar .nav-item span{font-size:10px;line-height:14px;white-space:nowrap}
+ html:root:root body .sidebar .nav-item svg{height:23px;width:23px}
+ html:root:root body .sidebar .nav-item.active{background:var(--green);color:var(--ink)}
+ html:root:root body .mobile-brand{display:flex;align-items:center;justify-content:space-between;height:48px;min-height:48px;padding:4px 16px;border-radius:0;background:var(--bg);box-shadow:none;border:0}
+ html:root:root body .mobile-brand .brand{font-size:23px;gap:5px;line-height:1}
+ html:root:root body .mobile-brand .logo-crop{width:32px;height:32px}
+ html:root:root body .mobile-brand .theme-toggle{width:40px;height:40px;min-height:40px;padding:9px;border:0;box-shadow:none;background:transparent;border-radius:50%}
+ html:root:root body .page-header{height:auto;min-height:56px;padding:10px 16px;border:0;border-radius:0;background:var(--bg);box-shadow:none;gap:10px}
+ html:root:root body .page-header h1{font-size:25px;font-weight:700;letter-spacing:-.6px;line-height:1.2}
+ html:root:root body .page-header h1:after{display:none}
+ html:root:root body .page-header .secondary{font-size:13px;padding:8px 12px;min-height:40px}
+ html:root:root body .section-pad{padding:8px 16px 16px}
+ html:root:root body .search-field{height:44px;min-height:44px;padding:0 12px;border:0;border-radius:14px;box-shadow:none;background:color-mix(in srgb,var(--ink) 6%,var(--bg));gap:8px}
+ html:root:root body .search-field input{padding:8px 0;background:transparent;border:0;border-radius:0;box-shadow:none;font-size:16px;height:44px;min-width:0;color:var(--ink)}
+ html:root:root body .person{padding:12px 0;gap:12px;min-height:78px;border-bottom:1px solid var(--line)}
+ html:root:root body .person .avatar{width:48px!important;height:48px!important;min-width:48px;font-size:22px}
+ html:root:root body .person strong,html:root:root body .person .author-name{font-size:16px;font-weight:600;line-height:1.3;letter-spacing:0}
+ html:root:root body .person p{font-size:14px;line-height:1.4;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;color:var(--muted)}
+ html:root:root body .person .secondary{width:42px;min-width:42px;height:44px;padding:10px;background:transparent;box-shadow:none;border:0}
+ html:root:root body .mobile-settings-tabs{display:flex;gap:4px;margin:8px 16px;padding:4px;background:color-mix(in srgb,var(--ink) 5%,var(--bg));border-radius:15px}
+ .mobile-settings-tabs button{flex:1;min-width:0;min-height:40px;border:0;background:transparent;border-radius:12px;font:inherit;font-size:13px;color:var(--muted)}.mobile-settings-tabs button.active{background:var(--green);color:var(--ink)}
+ html:root:root body .feed-install{padding:8px 16px 0}.feed-install .install-app-button{min-height:42px;padding:10px 14px;font-size:14px}.feed-install .install-app{margin-bottom:0}
+ html:root:root body .post,html:root:root body .composer{padding:14px 16px;border-radius:0;box-shadow:none;background:var(--bg)}
+ html:root:root body .post-body,html:root:root body .message p{font-size:16px;line-height:1.45}
+ html:root:root body .author-name{font-size:15px;font-weight:600}
+ html:root:root body .settings-card{padding:16px;border-radius:18px;box-shadow:none}
+ html:root:root body .profile-cover{height:86px;margin:8px 16px}.profile-form{gap:16px}
+ html:root:root body .is-chat{height:var(--app-height,100dvh);min-height:0;overflow:hidden}
+ html:root:root body .is-chat .main-content{height:calc(var(--app-height,100dvh) - 76px - env(safe-area-inset-bottom,0px));min-height:0;padding:0;display:flex;flex-direction:column}
+ html:root:root body .messenger{display:flex;flex:1;min-height:0;height:auto;border:0}
+ html:root:root body .chat-list{width:100%;padding:4px 0;overflow-y:auto;border:0}
+ html:root:root body .chat-list>.search-field{margin:0 16px 10px}
+ html:root:root body .chat-filters{padding:0 16px 8px}
+ html:root:root body .chat-item{padding:12px 16px;min-height:78px;gap:12px;border-radius:0;border:0;border-bottom:1px solid var(--line);background:transparent;box-shadow:none}
+ html:root:root body .chat-item>.avatar,html:root:root body .group-avatar{width:50px;height:50px;min-width:50px;border-radius:50%}
+ html:root:root body .chat-item strong{font-size:16px;font-weight:600;line-height:1.3}
+ html:root:root body .chat-item small{font-size:14px;line-height:1.4;margin-top:4px}
+ html:root:root body .chat-item>span:not(.avatar):not(.group-avatar){flex:1;min-width:0;text-align:left}
+ html:root:root body .chat-item strong,html:root:root body .chat-item small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ html:root:root body .messenger:not(.has-selected) .chat-window{display:none}
+ html:root:root body .messenger.has-selected .chat-list{display:none}
+ html:root:root body .messenger.has-selected .chat-window{display:flex;width:100%;flex:1;min-height:0;border:0;border-radius:0}
+ html:root:root body .conversation-open .sidebar,html:root:root body .conversation-open .mobile-brand,html:root:root body .conversation-open .chat-main>.page-header{display:none}
+ html:root:root body .conversation-open .main-content{height:var(--app-height,100dvh);min-height:0;padding:0}
+ html:root:root body .conversation-heading{height:60px;min-height:60px;padding:8px 12px;gap:8px;border-radius:0;box-shadow:none;background:var(--bg)}
+ html:root:root body .conversation-heading .back-chat{order:-1;display:flex;flex-shrink:0}
+ html:root:root body .conversation-heading strong{font-size:16px;line-height:1.2;font-weight:600}
+ html:root:root body .messages{padding:12px 10px;gap:8px;overscroll-behavior:contain;background:color-mix(in srgb,var(--green) 14%,var(--bg))}
+ html:root:root body .message{max-width:86%;padding:9px 12px 6px;border-radius:18px;box-shadow:0 1px 2px #00000008}
+ html:root:root body .message-form{padding:8px 10px max(8px,env(safe-area-inset-bottom,0px));gap:8px;border-radius:0;background:var(--bg);flex-shrink:0}
+ html:root:root body .message-form textarea{font-size:16px;padding:11px 12px;min-height:44px;max-height:110px;border-radius:22px;line-height:1.35}
+ html:root:root body .message-form .primary{width:44px;height:44px;min-width:44px;border-radius:50%;padding:12px}
+ html:root:root body .modal-backdrop{padding:12px;align-items:center}.modal{width:100%;max-width:460px;overflow-y:auto;overscroll-behavior:contain}
+ html:root:root body input,html:root:root body textarea{font-size:16px}
+}
+@media(max-width:700px){html:root:root body .sidebar .nav-item.mobile-extra{display:none}html:root:root body .mobile-brand{height:calc(48px + env(safe-area-inset-top,0px));min-height:calc(48px + env(safe-area-inset-top,0px));padding-top:calc(4px + env(safe-area-inset-top,0px))}html:root:root body .conversation-heading{height:calc(60px + env(safe-area-inset-top,0px));min-height:calc(60px + env(safe-area-inset-top,0px));padding-top:calc(8px + env(safe-area-inset-top,0px))}}
+
+html:root:root body .chat-filters button.active{color:#273b1a}@media(max-width:700px){html:root:root body .sidebar .nav-item.active,html:root:root body .mobile-settings-tabs button.active{color:#273b1a}html:root:root body .sidebar .nav-item span{font-size:11px}}

@@ -1271,10 +1271,13 @@ test(
     assert.deepEqual(Object.keys(pushKey.body),['publicKey']);
     assert.equal(pushKey.body.publicKey.length,87);
     assert.deepEqual((await request('push/key','GET',undefined,alice.cookie)).body,pushKey.body);
+    assert.equal((await request('push/status','GET',undefined,alice.cookie)).body.connected,false);
+    assert.equal((await request('push/test','POST',{},alice.cookie)).status,409);
     const subscription={endpoint:'https://fcm.googleapis.com/fcm/send/test-only',keys:{p256dh:'A'.repeat(87),auth:'A'.repeat(22)}};
     assert.equal((await request('push/subscription','POST',{...subscription,endpoint:'https://127.0.0.1/private'},alice.cookie)).status,400);
     assert.equal((await request('push/subscription','POST',subscription,alice.cookie)).status,200);
     assert.equal((await request('push/subscription','POST',subscription,alice.cookie)).status,200);
+    assert.equal((await request('push/status','GET',undefined,alice.cookie)).body.connected,true);
     assert.equal((await db.query('SELECT * FROM push_subscriptions')).rows.length,1);
     await request('push/subscription','DELETE',undefined,bob.cookie);
     assert.equal((await db.query('SELECT * FROM push_subscriptions')).rows.length,1);
