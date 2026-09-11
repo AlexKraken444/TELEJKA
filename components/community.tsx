@@ -299,7 +299,7 @@ export function PlusSettings({ onSaved }: { onSaved: (u: User) => void }) {
   }
   return (
     <section className="section-pad community">
-      <h2>TELEJKA+ · настройки</h2>
+      <h2 className="sr-only">Настройки подписки</h2>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -312,6 +312,7 @@ export function PlusSettings({ onSaved }: { onSaved: (u: User) => void }) {
               ? "Подписка активна"
               : "Подписка доступна в разделе «БАТОНчики»."}
           </p>
+          <div className="settings-card"><div className="settings-section-title"><span>01</span><div><h2>Оформление</h2><p>Твой цвет имени в ленте и переписке</p></div></div>
           <label className="setting-row">
             Цвет имени
             <input
@@ -327,7 +328,8 @@ export function PlusSettings({ onSaved }: { onSaved: (u: User) => void }) {
             onClick={() => setData({ ...data, name_color: null })}
           >
             Обычный цвет
-          </button>
+          </button></div>
+          <div className="settings-card"><div className="settings-section-title"><span>02</span><div><h2>Приватность</h2><p>Выбери, кому открыт твой профиль</p></div></div>
           <label className="setting-row">
             <input
               type="checkbox"
@@ -377,35 +379,11 @@ export function PlusSettings({ onSaved }: { onSaved: (u: User) => void }) {
               </div>
             </>
           )}
-          <button className="primary" disabled={busy} onClick={save}>
+          </div><div className="settings-save"><button className="primary" disabled={busy} onClick={save}>
             Сохранить настройки
           </button>
-          {saved && <p role="status">Сохранено</p>}
-          <h3>Заблокированные пользователи</h3>
-          {!data.blocked.length && <p className="muted">Список пуст</p>}
-          {data.blocked.map((p) => (
-            <div className="setting-row" key={p.id}>
-              <UserName user={p} />
-              <button
-                className="secondary"
-                onClick={async () => {
-                  try {
-                    await api("users/" + p.id + "/block", "POST", {
-                      blocked: false,
-                    });
-                    setData({
-                      ...data,
-                      blocked: data.blocked.filter((x) => x.id !== p.id),
-                    });
-                  } catch (e) {
-                    setError(errorText(e));
-                  }
-                }}
-              >
-                Разблокировать
-              </button>
-            </div>
-          ))}
+          {saved && <p role="status">Сохранено</p>}</div>
+
         </>
       )}
     </section>
@@ -527,3 +505,29 @@ export function ChatActions({
     </details>
   );
 }
+
+export function BlockedUsers(){const [data,setData]=useState<Preferences|null>(null),[error,setError]=useState('');useEffect(()=>{api<Preferences>('me/preferences').then(setData).catch(e=>setError(errorText(e)))},[]);return <section className="section-pad"><details className="settings-card"><summary>Заблокированные пользователи</summary>{error&&<p className="error">{error}</p>}{data&&<>          <h3>Заблокированные пользователи</h3>
+          {!data.blocked.length && <p className="muted">Список пуст</p>}
+          {data.blocked.map((p) => (
+            <div className="setting-row" key={p.id}>
+              <UserName user={p} />
+              <button
+                className="secondary"
+                onClick={async () => {
+                  try {
+                    await api("users/" + p.id + "/block", "POST", {
+                      blocked: false,
+                    });
+                    setData({
+                      ...data,
+                      blocked: data.blocked.filter((x) => x.id !== p.id),
+                    });
+                  } catch (e) {
+                    setError(errorText(e));
+                  }
+                }}
+              >
+                Разблокировать
+              </button>
+            </div>
+          ))}</>}</details></section>;}

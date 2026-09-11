@@ -4,6 +4,7 @@ import {
   DailyVisit,
   Rewards,
   PlusSettings,
+  BlockedUsers,
   ProfileActions,
   ChatActions,
   Reactions,
@@ -46,7 +47,7 @@ import { ThemeToggle, Notifications, registerDevice } from "./preferences";
 import { FilePicker, uploadFiles, MediaList } from "./media";
 import { EncryptedMessage } from "./encrypted-message";
 import { encryptMessage, type PublicDevice } from "@/lib/crypto-chat";
-type Tab = "rewards" | "feed" | "chats" | "people" | "profile" | "account";
+type Tab = "plus" | "rewards" | "feed" | "chats" | "people" | "profile" | "account";
 export function SocialApp({ initialUser }: { initialUser: User }) {
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -115,7 +116,8 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     { key: "chats" as const, label: "Сообщения", icon: MessageCircle },
     { key: "people" as const, label: "Люди", icon: Users },
     { key: "rewards" as const, label: "БАТОНчики", icon: Sparkles },
-    { key: "profile" as const, label: "Профиль", icon: Settings },
+    { key: "profile" as const, label: "Профиль", icon: Users },
+    { key: "plus" as const, label: "TELEJKA+", icon: Settings },
   ];
   return (
     <div className={`app-shell ${tab === "chats" ? "is-chat" : ""}`}>
@@ -248,6 +250,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             </div>
           </>
         )}
+        {tab === "plus" && <><Header title="TELEJKA+" subtitle="Подписка, оформление и приватность"/><div className="plus-intro section-pad"><span className="plus-emblem">+</span><div><h2>{user.plus_active?"Твоя TELEJKA+":"Больше возможностей"}</h2><p>{user.plus_active?"Настрой подписку под себя.":"Реакции, цвет имени, музыка и закрытый профиль."}</p></div><button className="secondary" onClick={()=>setTab("rewards")}>{user.plus_active?"Продлить":"Подключить"}</button></div><PlusSettings onSaved={setUser}/></>}
         {tab === "profile" && (
           <>
             <Profile user={user} onSaved={setUser} />
@@ -863,6 +866,7 @@ function Profile({
       />
       <div className="profile-cover" />
       <form className="profile-form" onSubmit={save}>
+        <div className="settings-section-title"><span>01</span><div><h2>Данные профиля</h2><p>Как тебя видят другие пользователи</p></div></div>
         <div className="profile-avatar">
           <label className="upload-avatar">
             <Avatar user={{ name, avatar, color: user.color }} size={86} />
@@ -941,7 +945,7 @@ function Profile({
       <div className="section-pad">
         <ProfileMusic userId={user.id} editable enabled={user.plus_active} />
       </div>
-      <PlusSettings onSaved={onSaved} />
+      <BlockedUsers/>
       <h3 className="profile-posts-title">Твои публикации</h3>
       <Feed user={user} onPerson={() => {}} mine />
     </>
