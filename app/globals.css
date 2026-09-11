@@ -2569,26 +2569,26 @@ p {
   --glass-strong: rgba(255, 255, 255, 0.8);
   --glass-edge: rgba(255, 255, 255, 0.92);
   --glass-shadow:
-    0 12px 36px #334c6c12, inset 0 1px 0 #fff, inset 0 -1px 0 #ffffff70;
-  --ink: #182c42;
-  --muted: #586d80;
-  --line: #a8bbce42;
-  --green: #c4e9e5;
-  --deep: #164e63;
-  --bg: #eaf1f7;
+    0 12px 36px #344b2412, inset 0 1px 0 #fff, inset 0 -1px 0 #ffffff70;
+  --ink: #202b1c;
+  --muted: #59694e;
+  --line: #afc39942;
+  --green: #d5edac;
+  --deep: #334b24;
+  --bg: #f1f5e9;
 }
 [data-theme="dark"] {
-  --glass: rgba(24, 35, 55, 0.65);
-  --glass-strong: rgba(30, 43, 64, 0.86);
-  --glass-edge: rgba(211, 233, 255, 0.23);
+  --glass: rgba(24, 33, 20, 0.65);
+  --glass-strong: rgba(30, 42, 25, 0.86);
+  --glass-edge: rgba(222, 242, 195, 0.23);
   --glass-shadow:
     0 16px 40px #0003, inset 0 1px 0 #ffffff24, inset 0 -1px 0 #ffffff09;
-  --ink: #eef5ff;
-  --muted: #b0c0d5;
-  --line: #b4cce52b;
-  --green: #b4e3e1;
-  --deep: #b4e3e1;
-  --bg: #111d30;
+  --ink: #edf4e5;
+  --muted: #b6c5a5;
+  --line: #c0d7a42b;
+  --green: #c5e69e;
+  --deep: #c5e69e;
+  --bg: #131c10;
 }
 body {
   background: var(--bg);
@@ -2602,16 +2602,16 @@ body:before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(ellipse at 8% 15%, #79d3ef65, transparent 45%),
-    radial-gradient(ellipse at 90% 35%, #c4a3f375, transparent 48%),
-    radial-gradient(ellipse at 35% 95%, #72dfc95c, transparent 45%);
+    radial-gradient(ellipse at 8% 15%, #acd96665, transparent 45%),
+    radial-gradient(ellipse at 90% 35%, #c9e99175, transparent 48%),
+    radial-gradient(ellipse at 35% 95%, #91bd685c, transparent 45%);
   background-attachment: fixed;
 }
 [data-theme="dark"] body:before {
   background:
-    radial-gradient(ellipse at 5% 15%, #147b9465, transparent 48%),
-    radial-gradient(ellipse at 90% 45%, #7040a050, transparent 50%),
-    radial-gradient(ellipse at 35% 100%, #16565e70, transparent 50%);
+    radial-gradient(ellipse at 5% 15%, #426d2565, transparent 48%),
+    radial-gradient(ellipse at 90% 45%, #688c2850, transparent 50%),
+    radial-gradient(ellipse at 35% 100%, #2e502370, transparent 50%);
 }
 .app-shell {
   gap: 22px;
@@ -2700,7 +2700,7 @@ html:root:root
   border-radius: 16px;
   box-shadow:
     inset 0 1px 0 #ffffff70,
-    0 3px 9px #15344f08;
+    0 3px 9px #324b2008;
 }
 html:root:root
   body
@@ -2709,11 +2709,11 @@ html:root:root
   color: var(--ink);
 }
 html:root:root body .primary {
-  background: linear-gradient(135deg, #defdf0db, #94d9efdb);
-  color: #153e50;
+  background: linear-gradient(135deg, #e6f8cadb, #bddf8cdb);
+  color: #2b411c;
   box-shadow:
     inset 0 1px 0 #ffffffd0,
-    0 4px 15px #3994b52b;
+    0 4px 15px #75a3432b;
 }
 html:root:root
   body
@@ -2726,7 +2726,7 @@ html:root:root
     .reaction.selected,
     .suggested:hover
   ) {
-  background: linear-gradient(125deg, #c4edeb78, #b5c9ee60);
+  background: linear-gradient(125deg, #d5edac78, #b7d88960);
   color: var(--ink);
   box-shadow: inset 0 1px 0 #ffffff6b;
   border-radius: 17px;
@@ -2739,15 +2739,15 @@ html:root:root body .message {
   border-radius: 20px;
 }
 html:root:root body .message.own {
-  background: linear-gradient(130deg, #d4f6edc9, #c0e5f6c9);
-  color: #163949;
+  background: linear-gradient(130deg, #e1f3c8c9, #c7e5a3c9);
+  color: #2d421f;
 }
 [data-theme="dark"] body .message.own {
-  background: linear-gradient(130deg, #255e65cc, #304e79cc);
-  color: #eefaff;
+  background: linear-gradient(130deg, #395929cc, #4b6130cc);
+  color: #eff8e7;
 }
 .profile-cover {
-  background: linear-gradient(125deg, #98dfea99, #c7b4fa88, #b7efe499);
+  background: linear-gradient(125deg, #b8dc8599, #d9edaa88, #b1d89299);
   border-bottom: 1px solid var(--glass-edge);
 }
 html:root:root body .post-heading time,
@@ -2783,7 +2783,7 @@ html:root:root body .composer-bottom > span {
   height: 44px;
   flex-shrink: 0;
   border-radius: 14px;
-  background: linear-gradient(135deg, #79d1e9, #b69bed);
+  background: linear-gradient(135deg, #91bc5e, #c6df83);
   color: white;
   font-size: 28px;
 }
@@ -2819,11 +2819,11 @@ html:root:root body .composer-bottom > span {
   font-size: 17px;
   font-weight: 800;
   line-height: 1;
-  background: linear-gradient(110deg, #16a6b9, #7260e9, #e677bb, #16a6b9);
+  background: linear-gradient(110deg, #568f38, #92bd48, #cce890, #568f38);
   background-size: 300% 100%;
   box-shadow:
     inset 0 1px 0 #fff8,
-    0 2px 7px #7060de45;
+    0 2px 7px #6d943c45;
   animation: plus-shimmer 5s linear infinite;
 }
 @keyframes plus-shimmer {
@@ -2885,7 +2885,7 @@ html:root:root body .composer-bottom > span {
 }
 
 html:root:root body .profile-cover {
-  background: linear-gradient(125deg, #98dfea99, #c7b4fa88, #b7efe499);
+  background: linear-gradient(125deg, #b8dc8599, #d9edaa88, #b1d89299);
 }
 html:root:root body :is(.nav-item, .feed-tabs button, .logout, .auth-note) {
   color: var(--muted);
@@ -2899,4 +2899,56 @@ html:root:root body :is(.empty > span, .theme-toggle) {
   color: var(--ink);
   border: 1px solid var(--glass-edge);
   box-shadow: var(--glass-shadow);
+}
+
+/* Room inside the new glass surfaces, including narrow screens. */
+html:root:root body .composer textarea {
+  padding: 14px 16px;
+}
+html:root:root body .message-form textarea {
+  padding: 12px 16px;
+}
+html:root:root body .feed-tabs button {
+  padding: 12px 16px;
+}
+html:root:root body .user-switch {
+  padding: 16px 10px;
+  gap: 10px;
+}
+html:root:root body .chat-item {
+  padding: 14px 12px;
+}
+html:root:root body .conversation-heading {
+  padding: 16px 18px;
+  gap: 12px;
+}
+html:root:root body .conversation-heading > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+html:root:root body .message {
+  padding: 12px 16px;
+}
+.plus-badge {
+  padding: 0;
+  position: relative;
+  box-sizing: border-box;
+}
+.plus-badge svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+  flex: none;
+  margin: 0;
+}
+@media (max-width: 700px) {
+  html:root:root body .feed-tabs button {
+    padding: 12px 10px;
+  }
+  html:root:root body .conversation-heading {
+    padding: 12px 14px;
+  }
+  html:root:root body .message {
+    padding: 11px 14px;
+  }
 }
