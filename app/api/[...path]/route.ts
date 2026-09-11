@@ -24,6 +24,7 @@ import {
   attachmentMetadata,
 } from "@/lib/feature-api";
 export const runtime = "nodejs";
+export const maxDuration=60;
 export const dynamic = "force-dynamic";
 class ApiError extends Error {
   constructor(

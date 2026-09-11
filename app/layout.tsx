@@ -3,7 +3,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "TELEJKA",
   description: "Посты, личные сообщения и групповые чаты.",
-  icons: { icon: "/telejka-logo.png" },
+  icons: { icon: "/telejka-logo.png", apple: "/push-icon.png" },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "TELEJKA", statusBarStyle: "default" },
 };
 export default function RootLayout({
   children,

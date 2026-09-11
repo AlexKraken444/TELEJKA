@@ -1,4 +1,5 @@
 "use client";
+import {PushSettings,PushSync} from "./push-settings";
 import { ProfileMusic } from "./profile-music";
 import {
   DailyVisit,
@@ -71,6 +72,13 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     [tab, setTab] = useState<Tab>("feed"),
     [error, setError] = useState(""),
     [chatId, setChatId] = useState<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const chat = params.get('chat');
+    if (params.get('account') === initialUser.id && chat && /^[0-9a-f-]{36}$/i.test(chat)) {
+      setChatId(chat); setTab('chats'); window.history.replaceState(null, '', '/feed');
+    }
+  }, [initialUser.id]);
   const [people, setPeople] = useState<User[]>([]),
     [query, setQuery] = useState("");
   useEffect(() => {
@@ -121,7 +129,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
   ];
   return (
     <div className={`app-shell ${tab === "chats" ? "is-chat" : ""}`}>
-      <DailyVisit userId={user.id} />
+      <PushSync userId={user.id}/><DailyVisit userId={user.id} />
       <Notifications
         userId={user.id}
         onOpen={(id) => {
@@ -945,7 +953,7 @@ function Profile({
       <div className="section-pad">
         <ProfileMusic userId={user.id} />
       </div>
-      <BlockedUsers/>
+      <PushSettings userId={user.id}/><BlockedUsers/>
       <h3 className="profile-posts-title">Твои публикации</h3>
       <Feed user={user} onPerson={() => {}} mine />
     </>

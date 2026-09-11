@@ -1,0 +1,2 @@
+import type {MetadataRoute} from 'next';
+export default function manifest():MetadataRoute.Manifest{return {id:'/',name:'TELEJKA',short_name:'TELEJKA',description:'Лента, чаты и уведомления TELEJKA',start_url:'/feed',scope:'/',display:'standalone',background_color:'#f1f5e9',theme_color:'#d5edac',lang:'ru',icons:[{src:'/push-icon.png',sizes:'192x192',type:'image/png',purpose:'any'},{src:'/app-icon.png',sizes:'512x512',type:'image/png',purpose:'any'}]};}

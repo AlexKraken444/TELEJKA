@@ -2961,3 +2961,5 @@ html body .plus-emblem{width:54px;height:54px;min-width:54px;min-height:54px}
 .centered-plus:before,.centered-plus:after{content:"";position:absolute;display:block;left:50%;top:50%;transform:translate(-50%,-50%);background:currentColor;border-radius:2px}
 .centered-plus:before{width:56%;height:2px}.centered-plus:after{height:56%;width:2px}
 .plus-emblem .centered-plus:before{height:4px}.plus-emblem .centered-plus:after{width:4px}
+
+.push-settings{display:flex;flex-direction:column;align-items:flex-start;gap:14px}.push-settings h2{font-size:20px}.push-settings p{line-height:1.6}.push-settings .small{font-size:12px}

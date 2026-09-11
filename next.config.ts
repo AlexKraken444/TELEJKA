@@ -2,10 +2,11 @@ import type { NextConfig } from "next";
 const config: NextConfig = {
   poweredByHeader: false,
   outputFileTracingIncludes: {
-    "/*": ["./db/schema.sql", "./db/features.sql", "./db/community.sql"],
+    "/*": ["./db/schema.sql", "./db/features.sql", "./db/community.sql", "./db/push.sql"],
   },
   async headers() {
     return [
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache" }] },
       {
         source: "/(.*)",
         headers: [

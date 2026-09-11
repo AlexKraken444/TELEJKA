@@ -1,3 +1,4 @@
+import {pushApi,scheduleMessagePush} from "./push-api";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "./db";
@@ -53,6 +54,7 @@ export async function featureApi(
 ): Promise<Response | undefined> {
   const sql = db(),
     route = path.join("/");
+  const pushResponse=await pushApi(req,path,input,userId);if(pushResponse)return pushResponse;
   if (route === "devices" && req.method === "POST") {
     const data = z
       .object({
@@ -259,7 +261,7 @@ export async function featureApi(
       );
     const [previous] =
       await sql`SELECT id FROM messages WHERE user_id=${userId} AND client_id=${data.clientId}`;
-    if (previous) return reply(previous);
+    if (previous) {scheduleMessagePush(previous.id);return reply(previous);}
     await attachmentMetadata(data.attachmentIds, userId, chatId);
     const result = await sql.begin(async (tx) => {
       const [message] =
@@ -272,6 +274,7 @@ export async function featureApi(
       }
       return message;
     });
+    scheduleMessagePush(result.id);
     return reply(result, 201);
   }
 }
