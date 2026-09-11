@@ -71,7 +71,6 @@ export async function communityApi(
     const [person] =
       await sql`SELECT telejka_can_view(id,${userId}::uuid) allowed,COALESCE(plus_until>now(),false) active FROM users WHERE id=${target}`;
     if (!person?.allowed) throw new FeatureError(404, "Профиль недоступен.");
-    if (!person.active && target !== userId) return json(null);
     const [music] =
       await sql`SELECT u.id,u.name,u.mime,u.size FROM profile_music m JOIN uploads u ON u.id=m.upload_id WHERE m.user_id=${target}`;
     return json(music || null);

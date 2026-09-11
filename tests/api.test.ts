@@ -1216,8 +1216,8 @@ test(
           undefined,
           bob.cookie,
         )
-      ).body,
-      null,
+      ).body.name,
+      "song.mp3",
     );
     assert.equal(
       (await request("me/music", "DELETE", undefined, alice.cookie)).status,

@@ -126,15 +126,7 @@ export function UserName({ user }: { user: User }) {
           aria-label="TELEJKA+"
           title="TELEJKA+"
         >
-          <svg viewBox="0 0 12 12" aria-hidden="true">
-            <path
-              d="M6 2v8M2 6h8"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
+          <i className="centered-plus" aria-hidden="true"/>
         </span>
       )}
       <VerifiedBadge verified={user.verified} />

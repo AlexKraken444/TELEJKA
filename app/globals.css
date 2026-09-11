@@ -2953,3 +2953,11 @@ html:root:root body .message {
   }
 }
 .settings-card{padding:24px;border:1px solid var(--glass-edge);border-radius:22px;background:var(--glass);box-shadow:var(--glass-shadow)}.settings-section-title{display:flex;align-items:flex-start;gap:14px;margin-bottom:22px}.settings-section-title>span{font-size:12px;font-weight:700;padding:8px;border-radius:10px;background:var(--green);color:#334b24}.settings-section-title h2{font-size:19px;margin:0 0 6px}.settings-section-title p,.plus-intro p{font-size:13px;line-height:1.6;color:var(--muted)}.settings-save{display:flex;align-items:center;gap:15px;padding:4px 0 20px}.plus-intro{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.plus-intro>div{flex:1;min-width:180px}.plus-intro h2{font-size:22px;margin-bottom:8px}.plus-emblem{display:grid;place-items:center;width:54px;height:54px;border-radius:18px;background:linear-gradient(135deg,#b6d987,#def2b8);color:#355521;font-size:34px;box-shadow:var(--glass-shadow)}.settings-card summary{cursor:pointer;font-weight:600;padding:4px 0}.settings-card .setting-row{padding:14px 0}.settings-card .muted{line-height:1.6;margin-bottom:14px}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}@media(max-width:700px){.settings-card{padding:18px}.plus-intro{gap:12px}.settings-section-title{gap:10px}.settings-section-title h2{font-size:18px}.sidebar .nav-item span{font-size:9px}.sidebar .nav-item{padding-left:2px;padding-right:2px}.sidebar .nav-item svg{width:19px;height:19px}}
+/* Geometric plus: independent of font metrics and inherited SVG sizing. */
+html body .plus-badge,html body .plus-emblem{position:relative;display:inline-block;box-sizing:border-box;padding:0;flex-shrink:0;line-height:0;overflow:hidden;aspect-ratio:1}
+html body .plus-badge{width:18px;height:18px;min-width:18px;min-height:18px}
+html body .plus-emblem{width:54px;height:54px;min-width:54px;min-height:54px}
+.centered-plus{position:absolute;inset:0;display:block;pointer-events:none}
+.centered-plus:before,.centered-plus:after{content:"";position:absolute;display:block;left:50%;top:50%;transform:translate(-50%,-50%);background:currentColor;border-radius:2px}
+.centered-plus:before{width:56%;height:2px}.centered-plus:after{height:56%;width:2px}
+.plus-emblem .centered-plus:before{height:4px}.plus-emblem .centered-plus:after{width:4px}
