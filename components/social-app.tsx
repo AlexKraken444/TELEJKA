@@ -1,4 +1,5 @@
 "use client";
+import {InstallApp} from "./install-app";
 
 import {PushSettings,PushSync} from "./push-settings";
 import { ProfileMusic } from "./profile-music";
@@ -208,7 +209,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             </button>
           </div>
         )}
-        {tab === "feed" && <Feed user={user} onPerson={openProfile} />}
+        {tab === "feed" && <><div className="feed-install"><InstallApp /></div><Feed user={user} onPerson={openProfile} /></>}
         {tab === "account" && viewed && (
           <PublicProfile
             key={viewed.id}

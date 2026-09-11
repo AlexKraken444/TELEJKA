@@ -1,3 +1,4 @@
+import {fetchSessionUser} from "./session-user";
 import { canManageVerification } from "./verification";
 import { cookies } from "next/headers";
 import { createHash, randomBytes } from "node:crypto";
@@ -21,22 +22,7 @@ export async function createSession(userId: string) {
 export async function currentUser() {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
-  if (!databaseUrl()) {
-    try {
-      const response = await fetch(
-        "https://1234news.vercel.app/api/telejka/me",
-        {
-          headers: { cookie: `${COOKIE}=${token}` },
-          cache: "no-store",
-          redirect: "error",
-          signal: AbortSignal.timeout(20000),
-        },
-      );
-      return response.ok ? await response.json() : null;
-    } catch {
-      return null;
-    }
-  }
+  if (!databaseUrl()) return fetchSessionUser(token);
   await ensureDatabase();
   const [user] =
     await db()`SELECT u.id, u.name, u.bio, u.avatar, u.color, u.verified, u.plus_until, COALESCE(u.plus_until>now(),false) plus_active, CASE WHEN u.plus_until>now() THEN u.name_color END name_color,u.is_private, u.created_at FROM users u JOIN sessions s ON s.user_id = u.id WHERE s.token_hash = ${hashToken(token)} AND s.expires_at > now()`;

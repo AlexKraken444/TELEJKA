@@ -1,5 +1,5 @@
 "use client";
-import {InstallApp} from "./install-app";
+
 import { useState, type FormEvent } from "react";
 import {
   ArrowUpRight,
@@ -46,7 +46,6 @@ export function AuthScreen() {
           <Logo />
           <ThemeToggle />
         </div>
-        <InstallApp />
         <div className="auth-top">
           {login ? "Ещё не с нами?" : "Уже есть аккаунт?"}{" "}
           <button
