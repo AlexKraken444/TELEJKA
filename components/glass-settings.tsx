@@ -70,8 +70,8 @@ export function GlassSettings() {
       aria-labelledby="glass-title"
     >
       <div className="settings-card">
-        <h2 id="glass-title">Оформление кнопок</h2>
-        <p className="muted">Liquid Glass · настрой под себя</p>
+        <h2 id="glass-title">Оформление интерфейса</h2>
+        <p className="muted">Кнопки, панели и поля · единые настройки стекла</p>
         <div className="glass-preview">
           <span className="glass-preview-orb" />
           <button type="button" className="secondary">

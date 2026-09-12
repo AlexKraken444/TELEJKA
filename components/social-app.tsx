@@ -1,4 +1,6 @@
 "use client";
+import {Polls,FollowControl} from "./social-extras";
+import {StudioRuntime} from "./studio";
 import {GlassSettings} from './glass-settings';
 import {CallProvider,CallHistory,useCalls} from "./calls";
 import {InstallApp} from "./install-app";
@@ -135,7 +137,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     { key: "plus" as const, label: "TELEJKA+", icon: Settings },
   ];
   return (
-    <CallProvider user={user}><div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
+    <CallProvider user={user}><StudioRuntime/><div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
       <PushSync userId={user.id}/><DailyVisit userId={user.id} />
       <Notifications
         userId={user.id}
@@ -378,7 +380,7 @@ function Person({
             <UserName user={person} />
           </strong>
         </button>
-        <p>{person.bio || ""}</p>
+        <p>{person.bio || ""}</p><small>{person.follower_count ?? 0} подписчиков</small>
       </div>
       <button className="secondary" aria-label={`Написать ${person.name}`} onClick={onChat}>
         <MessageCircle size={16} />
@@ -520,6 +522,7 @@ function Feed({
           {error}
         </p>
       )}
+      <Polls user={user} authorId={authorId || (mine || filter ? user.id : undefined)} readOnly={!!authorId || !!mine}/>
       {loading ? (
         <p className="loading">Загружаем ленту…</p>
       ) : posts.length ? (
@@ -795,7 +798,7 @@ function PublicProfile({
         <h2>
           <UserName user={profile} />
         </h2>
-        {profile.bio && <p className="profile-bio">{profile.bio}</p>}
+        <FollowControl target={profile.id} userId={user.id}/>{profile.bio && <p className="profile-bio">{profile.bio}</p>}
         {profile.can_view !== false && <ProfileMusic userId={profile.id} />}
         <p className="muted">
           {profile.post_count !== undefined
@@ -962,7 +965,7 @@ function Profile({
       <div className="section-pad">
         <ProfileMusic userId={user.id} />
       </div>
-      <GlassSettings/>
+      <FollowControl target={user.id} userId={user.id}/>{user.can_manage_verification&&<a className="secondary admin-link" href="/admin">Редактор сайта</a>}<GlassSettings/>
       <PushSettings userId={user.id}/><BlockedUsers/>
       <h3 className="profile-posts-title">Твои публикации</h3>
       <Feed user={user} onPerson={() => {}} mine />
@@ -1344,6 +1347,7 @@ function Conversation({
               el.scrollHeight - el.scrollTop - el.clientHeight < 100;
         }}
       >
+        <Polls user={user} chatId={chat.id}/>
         {more && (
           <button className="text-button older" onClick={older}>
             Предыдущие сообщения

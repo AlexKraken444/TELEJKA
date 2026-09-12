@@ -60,6 +60,8 @@ export function ensureDatabase() {
           );
           await tx`INSERT INTO telejka_migrations(name) VALUES ('community-v1')`;
         }
+        const [studioDone]=await tx`SELECT 1 FROM telejka_migrations WHERE name='social-studio-v1'`;
+        if(!studioDone){await tx.unsafe(await readFile(join(process.cwd(),'db','social-studio.sql'),'utf8'));await tx`INSERT INTO telejka_migrations(name) VALUES ('social-studio-v1')`;}
       });
     })().catch((error) => {
       globalDb.telejkaSchema = undefined;

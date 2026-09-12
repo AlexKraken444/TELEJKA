@@ -116,6 +116,21 @@ test(
       accounts.push({ id: res.body.id, cookie: res.cookie.split(";")[0] });
     }
     const [alice, bob, vera, outsider] = accounts;
+    assert.equal((await request('follows/'+bob.id,'POST',{},alice.cookie)).body.followers,1);
+    assert.equal((await request('follows/'+bob.id,'POST',{},alice.cookie)).body.followers,1);
+    assert.equal((await request('follows/'+alice.id,'POST',{},alice.cookie)).status,400);
+    assert.equal((await request('follows/'+bob.id,'DELETE',{},alice.cookie)).body.followers,0);
+    const poll=await request('polls','POST',{payload:{question:'Выбор?',options:['Да','Нет']}},alice.cookie);
+    assert.equal(poll.status,200,JSON.stringify(poll.body));
+    assert.equal((await request('polls/'+poll.body.id,'POST',{choice:2},bob.cookie)).status,400);
+    assert.equal((await request('polls/'+poll.body.id,'POST',{choice:0},bob.cookie)).status,200);
+    await request('polls/'+poll.body.id,'POST',{choice:1},bob.cookie);
+    const pollList=await request('polls','GET',undefined,bob.cookie);
+    assert.deepEqual(pollList.body[0].counts,{'1':1});
+    assert.equal(pollList.body[0].choice,1);
+    assert.equal((await request('studio','POST',{config:{}},alice.cookie)).status,403);
+    assert.equal((await request('studio/unlock','POST',{password:'anything'},alice.cookie)).status,403);
+
     for (const name of [" АЛИСА ", "Алиса"]) {
       const duplicate = await request("auth/register", "POST", {
         name,
@@ -286,6 +301,14 @@ test(
       bob.cookie,
     );
     assert.equal(reverse.body.id, direct.body.id);
+    const encryptedPoll=await encryptMessage(direct.body.id,{question:'Private poll',options:['One','Two']},devices.slice(0,2));
+    const cp=await request('polls?chat='+direct.body.id,'POST',{payload:encryptedPoll,optionCount:2},alice.cookie);
+    assert.equal(cp.status,200,JSON.stringify(cp.body));
+    assert.equal((await request('polls?chat='+direct.body.id,'GET',undefined,outsider.cookie)).status,404);
+    assert.equal((await request('polls/'+cp.body.id,'POST',{choice:0},outsider.cookie)).status,404);
+    assert.equal((await request('polls/'+cp.body.id,'POST',{choice:0},bob.cookie)).status,200);
+    assert.deepEqual((await request('polls?chat='+direct.body.id,'GET',undefined,bob.cookie)).body[0].payload,encryptedPoll);
+
     // Calls: encrypted signaling, access controls, busy state, timeout and teardown.
     const callId=crypto.randomUUID();
     const callOffer=await encryptMessage(callId,{callId,description:{type:'offer',sdp:'private-sdp'}},devices.slice(0,2));
@@ -787,6 +810,18 @@ test(
     });
     const ownerCookie = ownerLogin.cookie.split(";")[0];
     assert.equal(ownerLogin.body.can_manage_verification, true);
+    assert.equal((await request('studio','POST',{config:{}},ownerCookie)).status,403);
+    await db.query('UPDATE telejka_auth.studio_credentials SET password_hash=$1',[await bcrypt.hash('fixture-admin-password',12)]);
+    assert.equal((await request('studio/unlock','POST',{password:'wrong'},ownerCookie)).status,403);
+    assert.equal((await request('studio/unlock','POST',{password:'fixture-admin-password'},ownerCookie)).status,200);
+    const config={overrides:[],blocks:[{id:'hello',type:'button',text:'Открыть',action:{type:'navigate',url:'/feed'}}],pages:[]};
+    assert.equal((await request('studio','POST',{revision:0,config},ownerCookie)).status,200);
+    assert.equal((await request('studio','POST',{revision:0,config},ownerCookie)).status,409);
+    assert.deepEqual((await request('studio','GET',undefined,alice.cookie)).body.config,config);
+    assert.equal((await request('studio','POST',{revision:1,config:{...config,blocks:[{...config.blocks[0],action:{type:'navigate',url:'javascript:alert(1)'}}]}},ownerCookie)).status,400);
+    assert.equal((await request('studio/history','GET',undefined,ownerCookie)).body.length,1);
+    assert.equal((await request('studio/history','GET',undefined,alice.cookie)).status,403);
+
     assert.equal(
       (await request("rewards", "GET", undefined, ownerCookie)).body.unlimited,
       true,

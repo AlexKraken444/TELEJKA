@@ -3060,7 +3060,7 @@ html:root:root body .logo-crop img{position:absolute;inset:0;width:100%;height:1
 /* Shared translucent button material; text opacity never changes. */
 :root{--button-fill:0;--button-blur:18px;--button-gloss:.7;--button-tint:255 255 255}
 :root[data-theme="dark"]{--button-tint:26 36 24}
-html:root:root body :is(button,summary,.message-attach,.file-picker-label){
+html:root:root body :is(button,summary,.message-attach,.file-picker-label,.file-picker>label){
  background-color:rgb(var(--button-tint)/var(--button-fill))!important;
  background-image:radial-gradient(ellipse at var(--touch-x,25%) var(--touch-y,0%),rgb(255 255 255/calc(var(--button-gloss)*.25)),transparent 68%),linear-gradient(155deg,rgb(255 255 255/calc(var(--button-gloss)*.18)),transparent 45%,rgb(255 255 255/calc(var(--button-gloss)*.05)))!important;
  -webkit-backdrop-filter:blur(var(--button-blur)) saturate(155%);backdrop-filter:blur(var(--button-blur)) saturate(155%);
@@ -3069,7 +3069,7 @@ html:root:root body :is(button,summary,.message-attach,.file-picker-label){
  transition:scale 180ms cubic-bezier(.2,.8,.2,1),box-shadow 220ms ease,background-color 220ms ease,color 160ms ease;
  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
 }
-html:root:root body :is(button,summary,.message-attach,.file-picker-label):active:not(:disabled){scale:.96}
+html:root:root body :is(button,summary,.message-attach,.file-picker-label,.file-picker>label):active:not(:disabled){scale:.96}
 html:root:root body :is(button,summary):focus-visible{outline:3px solid #7aab42;outline-offset:3px}
 html:root:root body :is(button.active,button[aria-pressed="true"],button.primary){background-color:rgb(144 192 77/calc(.16 + var(--button-fill)*.7))!important}
 html:root:root body button:disabled{opacity:.45;scale:1;cursor:not-allowed}
@@ -3077,7 +3077,7 @@ html:root:root body .call-control{border-radius:24px;padding:10px 6px}
 html:root:root body .call-control.hangup{background-color:rgb(215 50 68/.15)!important}
 html:root:root body .call-control.answer{background-color:rgb(110 170 60/.17)!important}
 html:root:root body button:is(.person-name,.author-name,.text-button){border-radius:10px}
-@media(hover:hover){html:root:root body :is(button,summary,.message-attach,.file-picker-label):hover:not(:disabled){scale:1.025;box-shadow:inset 0 1px 0 rgb(255 255 255/calc(.2 + var(--button-gloss)*.7)),0 5px 18px rgb(45 70 24/.13)!important}}
+@media(hover:hover){html:root:root body :is(button,summary,.message-attach,.file-picker-label,.file-picker>label):hover:not(:disabled){scale:1.025;box-shadow:inset 0 1px 0 rgb(255 255 255/calc(.2 + var(--button-gloss)*.7)),0 5px 18px rgb(45 70 24/.13)!important}}
 .glass-settings .settings-card{display:grid;gap:18px;max-width:620px;margin:auto;padding:24px}
 .glass-settings h2,.glass-settings p{margin:0}
 .glass-preview{position:relative;isolation:isolate;overflow:hidden;display:grid;place-items:center;min-height:150px;border-radius:24px;background:linear-gradient(135deg,#c9e69a,#f0f5d4 55%,#87af69)}
@@ -3086,8 +3086,8 @@ html:root:root body button:is(.person-name,.author-name,.text-button){border-rad
 .glass-slider{display:grid;gap:10px;font-size:14px}.glass-slider>span{display:flex;justify-content:space-between;gap:16px}.glass-slider output{font-variant-numeric:tabular-nums;color:var(--muted)}
 html:root:root body .glass-slider input[type="range"]{width:100%;min-width:0;min-height:44px;padding:0;background:transparent;box-shadow:none;border:0;accent-color:#82ac4c;cursor:pointer;touch-action:pan-y}
 .glass-slider small{color:var(--muted)}
-@media(prefers-reduced-motion:reduce){html:root:root body :is(button,summary,.message-attach,.file-picker-label){transition:none!important;animation:none!important;scale:1!important}}
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){html:root:root body :is(button,summary,.message-attach,.file-picker-label){background-color:rgb(var(--button-tint)/.85)!important}}
+@media(prefers-reduced-motion:reduce){html:root:root body :is(button,summary,.message-attach,.file-picker-label,.file-picker>label){transition:none!important;animation:none!important;scale:1!important}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){html:root:root body :is(button,summary,.message-attach,.file-picker-label,.file-picker>label){background-color:rgb(var(--button-tint)/.85)!important}}
 
 /* Visible scenery behind the button glass, without nesting backdrop roots. */
 html:root:root body:before{background:#d6e5b8 url('/glass-background.svg') center/cover no-repeat;opacity:1}
@@ -3125,3 +3125,39 @@ html:root:root body .chat-filters{gap:8px;padding:4px 0 16px}
 @media(min-width:701px){html:root:root body .sidebar{max-height:calc(100dvh - 40px);overflow-y:auto;scrollbar-width:thin}html:root:root body .sidebar>*{flex-shrink:0}}
 html:root:root body .plus-intro{padding:24px 28px;gap:18px}
 @media(max-width:700px){html:root:root body .plus-intro{padding:20px 16px;gap:14px}}
+
+/* One material for every surface: the same three profile controls as buttons. */
+html:root{--surface-edge:120 145 98;--surface-light:255 255 255;--surface-shadow:35 52 24}
+html:root[data-theme="dark"]{--bg:#0c1210;--ink:#e7eee7;--muted:#a9b8ad;--line:#adc5ac26;--green:#b9d995;--deep:#c6e7a6;--button-tint:15 24 20;--surface-edge:139 171 145;--surface-light:195 220 199;--surface-shadow:0 0 0;--glass:rgb(15 24 20/.35);--glass-strong:rgb(15 24 20/.5)}
+html:root:root[data-theme="dark"] body:before{background-image:linear-gradient(120deg,#071510d9,#102019d9 55%,#08120deb),url('/glass-background.svg');background-color:#0c1210}
+html:root:root body :is(.sidebar,.main-content,.rightbar,.page-header,.mobile-brand,.conversation-heading,.message-form,.settings-card,.modal,.auth-page,.auth-form-side,.reward-card,.profile-music,.members-panel,.feed-tabs,.composer,.post,.chat-window,.chat-list,.profile-form,.public-profile,.notification,.install-app-help,.message,.call-overlay,.search-field,input:not([type="range"]):not([type="checkbox"]):not([type="color"]):not([type="file"]),textarea,select){
+ background-color:rgb(var(--button-tint)/var(--button-fill))!important;
+ background-image:linear-gradient(150deg,rgb(var(--surface-light)/calc(var(--button-gloss)*.09)),transparent 55%,rgb(var(--surface-light)/calc(var(--button-gloss)*.025)))!important;
+ backdrop-filter:blur(var(--button-blur)) saturate(125%)!important;-webkit-backdrop-filter:blur(var(--button-blur)) saturate(125%)!important;
+ border-color:rgb(var(--surface-edge)/.22)!important;
+ box-shadow:inset 0 1px 0 rgb(var(--surface-light)/calc(.04 + var(--button-gloss)*.28)),inset 0 -1px 0 rgb(var(--surface-light)/calc(var(--button-gloss)*.055)),0 8px 24px rgb(var(--surface-shadow)/.05)!important;
+ color:var(--ink);
+}
+html:root:root body .sidebar{scrollbar-width:none;-ms-overflow-style:none}
+html:root:root body .sidebar::-webkit-scrollbar{display:none;width:0;height:0}
+html:root:root[data-theme="dark"] body :is(.muted,.field-label small,.composer-bottom,.post-time,.user-switch small,.logout,.auth-note,.profile-form>p,.chat-item small,.call-history small){color:var(--muted)!important}
+html:root:root[data-theme="dark"] body :is(input,textarea)::placeholder{color:#98a99d;opacity:1}
+html:root:root[data-theme="dark"] body :is(button.active,button[aria-pressed="true"],button.primary){color:#eaf5df!important;background-color:rgb(108 150 78/calc(.17 + var(--button-fill)*.4))!important}
+html:root:root[data-theme="dark"] body .glass-preview{background:linear-gradient(130deg,#14271e,#344930,#1a2d25)}
+html:root:root[data-theme="dark"] body .glass-preview-orb{background:repeating-linear-gradient(40deg,#334f3c 0 12px,#8bab68 12px 24px)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){html:root:root body :is(.sidebar,.main-content,.rightbar,.modal,.settings-card){background-color:rgb(var(--button-tint)/.88)!important}}
+/* Quiet sage daylight and deep forest night; no opaque white legacy surfaces. */
+html:root:root body:before{background:radial-gradient(ellipse at 12% 18%,#a9c989b3,transparent 42%),radial-gradient(ellipse at 85% 76%,#99bca58c,transparent 45%),radial-gradient(ellipse at 70% 12%,#f2efcecc,transparent 38%),linear-gradient(140deg,#dce7d2,#e7eddf 48%,#cbdcc6)}
+html:root:root[data-theme="dark"] body:before{background:radial-gradient(ellipse at 10% 18%,#31563c80,transparent 43%),radial-gradient(ellipse at 88% 76%,#234e4670,transparent 47%),radial-gradient(ellipse at 70% 8%,#4b592d50,transparent 40%),linear-gradient(140deg,#0b1511,#111c17 50%,#091410)}
+html:root:root[data-theme="dark"] body :is(button,summary,.message-attach,.file-picker-label,.file-picker>label){background-image:linear-gradient(145deg,rgb(199 224 203/calc(var(--button-gloss)*.13)),transparent 50%,rgb(174 201 181/calc(var(--button-gloss)*.025)))!important;box-shadow:inset 0 1px 0 rgb(193 220 199/calc(.04 + var(--button-gloss)*.27)),inset 0 -1px 0 #0002,0 3px 12px #0002!important;border-color:#a8c4ac26!important}
+html:root:root body :is(.plus-intro,.chat-actions>div,.push-settings,.notifications,.auth-form,.profile-cover){background-color:rgb(var(--button-tint)/var(--button-fill));color:var(--ink)}
+html:root:root body :is(input,textarea,select){color:var(--ink)!important}
+html:root:root body .message.own{border-color:rgb(133 173 90/.35)!important}
+/* Fine grain remains visible behind transparent surfaces, without decorative ribbons. */
+html:root:root body:before{background-image:url('/grain.svg'),radial-gradient(ellipse at 15% 20%,#bdd19c,transparent 65%),linear-gradient(135deg,#dce6cd,#b6c9ab);background-size:180px 180px,cover,cover;background-repeat:repeat,no-repeat,no-repeat}
+html:root:root[data-theme="dark"] body:before{background-image:url('/grain.svg'),radial-gradient(ellipse at 15% 20%,#294633,transparent 65%),linear-gradient(135deg,#0d1912,#19271d);background-size:180px 180px,cover,cover}
+html:root:root body :is(.glass-panel,.empty>span,.plus-intro,.chat-actions>div,.push-settings,.auth-form,.profile-cover,.install-app,.security-panel){background-color:rgb(var(--button-tint)/var(--button-fill))!important;background-image:linear-gradient(150deg,rgb(var(--surface-light)/calc(var(--button-gloss)*.09)),transparent 55%)!important;backdrop-filter:blur(var(--button-blur)) saturate(125%)!important;-webkit-backdrop-filter:blur(var(--button-blur)) saturate(125%)!important;border:1px solid rgb(var(--surface-edge)/.22);box-shadow:inset 0 1px 0 rgb(var(--surface-light)/calc(.04 + var(--button-gloss)*.28)),0 8px 24px rgb(var(--surface-shadow)/.05);color:var(--ink)}
+.follow-control{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:16px 0}.follow-control small{flex-basis:100%}.admin-link{display:inline-flex;margin:16px 24px}
+.polls-section{display:grid;gap:16px;padding:20px 24px}.polls-section:empty{display:none}.polls-section>.secondary{justify-self:start}.poll-card,.poll-editor{border-radius:22px;padding:20px;display:grid;gap:14px;min-width:0}.poll-card h3{font-size:18px;margin:0;overflow-wrap:anywhere}.poll-options{display:grid;gap:10px}.poll-option{position:relative;isolation:isolate;overflow:hidden;display:flex;justify-content:space-between;text-align:left;gap:16px;padding:13px 16px;min-height:48px;border-radius:14px}.poll-option>span:not(.poll-fill),.poll-option>b{position:relative;z-index:1}.poll-fill{position:absolute;inset:0 auto 0 0;background:rgb(137 183 77/.25);z-index:0;pointer-events:none}.poll-editor label,.studio-panel label{display:grid;gap:8px}.poll-editor input,.studio-panel input:not([type="checkbox"]),.studio-panel select{width:100%;padding:12px;min-height:44px}.extra-actions{display:flex;gap:12px;flex-wrap:wrap}.messages>.polls-section{padding:0;width:100%;flex-shrink:0}.messages>.polls-section:has(.poll-card){margin-bottom:16px}
+.studio-admin{max-width:1180px;margin:0 auto;padding:32px 24px 70px;display:grid;gap:24px}.studio-admin header{display:grid;gap:12px}.studio-admin h1,.studio-admin h2,.studio-admin h3{margin:0}.studio-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}.studio-panel{border-radius:24px;padding:24px;display:grid;gap:18px;min-width:0}.studio-panel p{line-height:1.6;overflow-wrap:anywhere}.studio-panel input[type="checkbox"]{width:20px;height:20px}.studio-code{width:100%;font-family:monospace;line-height:1.6;tab-size:2;padding:16px;border-radius:16px;resize:vertical}.studio-blocks{display:flex;flex-wrap:wrap;gap:16px;padding:16px;overflow-wrap:anywhere}.studio-blocks:empty{display:none}.studio-blocks>p,.studio-blocks>section{flex-basis:100%;white-space:pre-wrap}.studio-notice{padding:20px;border-radius:18px;flex-basis:100%}.studio-page{max-width:900px;margin:32px auto;padding:32px;border-radius:24px}.studio-admin button{min-height:44px;padding:12px 18px}.studio-panel>.secondary{justify-self:start}
+@media(max-width:700px){.studio-grid{grid-template-columns:1fr}.studio-admin{padding:20px 14px 50px;gap:16px}.studio-panel{padding:18px}.polls-section{padding:16px}.poll-card,.poll-editor{padding:16px}.studio-page{margin:16px;padding:20px}.follow-control{gap:12px}.poll-option{padding:12px}.studio-blocks{padding:12px}}

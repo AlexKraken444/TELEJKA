@@ -1,5 +1,6 @@
 export type Reaction = { emoji: string; count: number; mine: boolean };
 export type User = {
+  follower_count?: number;
   plus_active?: boolean;
   plus_until?: string;
   name_color?: string | null;
