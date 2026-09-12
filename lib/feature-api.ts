@@ -1,3 +1,4 @@
+import {callApi} from "./call-api";
 import {pushApi,scheduleMessagePush} from "./push-api";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -54,6 +55,7 @@ export async function featureApi(
 ): Promise<Response | undefined> {
   const sql = db(),
     route = path.join("/");
+  const callResponse=await callApi(req,path,input,userId);if(callResponse)return callResponse;
   const pushResponse=await pushApi(req,path,input,userId);if(pushResponse)return pushResponse;
   if (route === "devices" && req.method === "POST") {
     const data = z

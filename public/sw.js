@@ -6,9 +6,10 @@ self.addEventListener('push',event=>{
  const uuid=/^[0-9a-f-]{36}$/i;
  const chatId=uuid.test(data.chatId||'')?data.chatId:null;
  const userId=uuid.test(data.userId||'')?data.userId:null;
- const messageId=uuid.test(data.messageId||'')?data.messageId:'new';
+ const isCall=data.kind==='call'&&uuid.test(data.callId||'');
+ const messageId=isCall?data.callId:uuid.test(data.messageId||'')?data.messageId:'new';
  event.waitUntil(self.registration.showNotification('TELEJKA',{
-  body:'Новое сообщение',icon:'/push-icon.png',badge:'/push-badge.png',
+  body:isCall?'Входящий звонок · открой TELEJKA, чтобы ответить':'Новое сообщение',icon:'/push-icon.png',badge:'/push-badge.png',
   tag:'telejka-'+messageId,renotify:false,data:{chatId,userId},
  }));
 });

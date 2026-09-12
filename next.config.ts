@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 const config: NextConfig = {
   poweredByHeader: false,
   outputFileTracingIncludes: {
-    "/*": ["./db/schema.sql", "./db/features.sql", "./db/community.sql", "./db/push.sql"],
+    "/*": ["./db/schema.sql", "./db/features.sql", "./db/community.sql", "./db/push.sql", "./db/calls.sql"],
   },
   async headers() {
     return [
@@ -16,7 +16,7 @@ const config: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
+            value: "camera=(), microphone=(self), geolocation=()",
           },
         ],
       },

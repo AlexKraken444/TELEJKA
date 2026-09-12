@@ -90,3 +90,10 @@ export async function deliverMessagePush(messageId:string){
   }
  }));
 }
+export async function sendCallPush(userId:string,callId:string,chatId:string){
+ const sql=db();const subs=await sql`SELECT p.* FROM push_subscriptions p JOIN sessions s ON s.token_hash=p.session_hash WHERE p.user_id=${userId} AND s.expires_at>now()`;
+ if(!subs.length)return;const keys=await vapid();
+ await Promise.allSettled(subs.map(async sub=>{try{
+  await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},JSON.stringify({kind:'call',callId,chatId,userId}),{vapidDetails:{subject:'https://telejka.vercel.app',publicKey:keys.public_key,privateKey:keys.private_key},TTL:60,urgency:'high',timeout:4000,topic:callId.replaceAll('-','')});
+ }catch(error){if([404,410].includes((error as {statusCode:number}).statusCode))await sql`DELETE FROM push_subscriptions WHERE id=${sub.id}`;}}));
+}

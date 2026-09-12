@@ -1,4 +1,5 @@
 "use client";
+import {CallProvider,CallHistory,useCalls} from "./calls";
 import {InstallApp} from "./install-app";
 
 import {PushSettings,PushSync} from "./push-settings";
@@ -23,6 +24,8 @@ import {
   Hash,
   Heart,
   Home,
+  Phone,
+  Paperclip,
   LogOut,
   MessageCircle,
   Plus,
@@ -131,7 +134,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     { key: "plus" as const, label: "TELEJKA+", icon: Settings },
   ];
   return (
-    <div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
+    <CallProvider user={user}><div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
       <PushSync userId={user.id}/><DailyVisit userId={user.id} />
       <Notifications
         userId={user.id}
@@ -210,7 +213,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             </button>
           </div>
         )}
-        {tab === "feed" && <><div className="feed-install"><InstallApp /><details className="feed-push-details"><summary>Уведомления на телефон</summary><PushSettings userId={user.id} compact /></details></div><Feed user={user} onPerson={openProfile} /></>}
+        {tab === "feed" && <><details className="feed-install feed-app-settings"><summary>Установить приложение и включить уведомления</summary><InstallApp /><PushSettings userId={user.id} compact /></details><Feed user={user} onPerson={openProfile} /></>}
         {tab === "account" && viewed && (
           <PublicProfile
             key={viewed.id}
@@ -304,7 +307,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           </button>
         </aside>
       )}
-    </div>
+    </div></CallProvider>
   );
 }
 function ArrowRightIcon() {
@@ -1006,7 +1009,7 @@ function Chats({
       clearInterval(timer);
     };
   }, []);
-  const [filter,setFilter]=useState<'all'|'direct'|'groups'>('all');
+  const [filter,setFilter]=useState<'all'|'direct'|'groups'|'calls'>('all');
   const current = chats.find((c) => c.id === selected);
   return (
     <>
@@ -1035,8 +1038,10 @@ function Chats({
               onChange={(e) => setSearch(e.target.value)}
             />
           </label>
-          <div className="chat-filters" aria-label="Фильтр чатов">{([{key:"all",label:"Все"},{key:"direct",label:"Личные"},{key:"groups",label:"Группы"}] as const).map(item=><button key={item.key} aria-pressed={filter===item.key} className={filter===item.key?"active":""} onClick={()=>setFilter(item.key)}>{item.label}</button>)}</div>
+          <div className="chat-filters" aria-label="Фильтр чатов">{([{key:"all",label:"Все"},{key:"direct",label:"Личные"},{key:"groups",label:"Группы"},{key:"calls",label:"Звонки"}] as const).map(item=><button key={item.key} aria-pressed={filter===item.key} className={filter===item.key?"active":""} onClick={()=>setFilter(item.key)}>{item.label}</button>)}</div>
+          {filter==="calls"&&<CallHistory onOpen={id=>{setSelected(id);onSelected(id)}}/>}
           {chats
+            .filter(()=>filter!=="calls")
             .filter(c=>filter==="all"||(filter==="groups"?c.is_group:!c.is_group))
             .filter((c) =>
               chatName(c, user.id).toLowerCase().includes(search.toLowerCase()),
@@ -1083,7 +1088,7 @@ function Chats({
                 <time className="chat-row-time">{new Date(chat.updated_at).toLocaleDateString()===new Date().toLocaleDateString()?new Date(chat.updated_at).toLocaleTimeString("ru",{hour:"2-digit",minute:"2-digit"}):new Date(chat.updated_at).toLocaleDateString("ru",{day:"numeric",month:"short"})}</time>
               </button>
             ))}
-          {!chats.length && (
+          {!chats.length && filter!=="calls" && (
             <Empty
               icon={<MessageCircle size={25} />}
               title="Нет чатов"
@@ -1152,6 +1157,7 @@ function Conversation({
   onBack: () => void;
   onPerson: (u: User) => void;
 }) {
+  const calls=useCalls();
   const [files, setFiles] = useState<File[]>([]),
     [keyWarning, setKeyWarning] = useState<{
       value: string;
@@ -1301,6 +1307,7 @@ function Conversation({
               : "Личный разговор"}
           </small>
         </div>
+        {!chat.is_group&&<button className="icon-button call-start" aria-label="Позвонить" title="Голосовой звонок" disabled={calls.busy} onClick={()=>calls.start(chat)}><Phone size={20}/></button>}
         <button
           className="icon-button"
           aria-label="Участники чата"
@@ -1396,9 +1403,10 @@ function Conversation({
         </div>
       )}
       <div className="chat-files">
-        <FilePicker files={files} onChange={setFiles} disabled={busy} chat />
+        <FilePicker files={files} onChange={setFiles} disabled={busy} chat inputId="chat-file-input" />
       </div>
       <form className="message-form" onSubmit={send}>
+        <label className="message-attach icon-button" htmlFor="chat-file-input" title="Прикрепить файл"><Paperclip size={21}/><span className="sr-only">Прикрепить файл</span></label>
         <textarea
           placeholder="Напиши что-нибудь…"
           aria-label="Сообщение"

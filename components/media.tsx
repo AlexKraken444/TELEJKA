@@ -26,11 +26,13 @@ export function FilePicker({
   onChange,
   disabled = false,
   chat = false,
+  inputId,
 }: {
   files: File[];
   onChange: (f: File[]) => void;
   disabled?: boolean;
   chat?: boolean;
+  inputId?: string;
 }) {
   const [error, setError] = useState("");
   return (
@@ -39,6 +41,8 @@ export function FilePicker({
         <Paperclip size={17} />
         <span>{chat ? "Файлы" : "Фото / видео"}</span>
         <input
+          id={inputId}
+          aria-label={chat ? "Прикрепить файл" : "Прикрепить фото или видео"}
           type="file"
           multiple
           disabled={disabled}

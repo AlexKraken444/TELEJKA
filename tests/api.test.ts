@@ -286,6 +286,28 @@ test(
       bob.cookie,
     );
     assert.equal(reverse.body.id, direct.body.id);
+    // Calls: encrypted signaling, access controls, busy state, timeout and teardown.
+    const callId=crypto.randomUUID();
+    const callOffer=await encryptMessage(callId,{callId,description:{type:'offer',sdp:'private-sdp'}},devices.slice(0,2));
+    const callData={id:callId,chatId:direct.body.id,deviceId:devices[0].id,offer:callOffer};
+    assert.equal((await request('calls','POST',callData,alice.cookie)).status,201);
+    assert.equal((await request('calls','POST',{...callData,id:crypto.randomUUID()},alice.cookie)).status,409);
+    assert.equal((await request('calls/'+callId,'GET',undefined,outsider.cookie)).status,404);
+    const receivedCall=(await request('calls/'+callId,'GET',undefined,bob.cookie)).body;
+    assert.equal((await decryptMessage<any>(callId,receivedCall.offer,identities[1])).description.sdp,'private-sdp');
+    const answer=await encryptMessage(callId,{callId,description:{type:'answer',sdp:'answer-sdp'}},devices.slice(0,1));
+    assert.equal((await request('calls/'+callId,'POST',{action:'accept',deviceId:devices[0].id,answer},alice.cookie)).status,400);
+    assert.equal((await request('calls/'+callId,'POST',{action:'accept',deviceId:devices[1].id,answer},bob.cookie)).status,200);
+    assert.equal((await request('calls/'+callId,'POST',{action:'accept',deviceId:devices[1].id,answer},bob.cookie)).status,409);
+    assert.equal((await request('calls/'+callId,'POST',{action:'end',deviceId:devices[0].id},alice.cookie)).status,200);
+    const ended=(await request('calls/'+callId,'GET',undefined,bob.cookie)).body;
+    assert.equal(ended.state,'ended');assert.equal(ended.offer,null);assert.equal(ended.answer,null);
+    const missedId=crypto.randomUUID();
+    assert.equal((await request('calls','POST',{...callData,id:missedId},alice.cookie)).status,201);
+    await db.query("UPDATE voice_calls SET created_at=now()-interval '2 minutes' WHERE id=$1",[missedId]);
+    assert.equal((await request('calls/'+missedId,'GET',undefined,alice.cookie)).body.state,'missed');
+    assert.equal((await request('calls/config','GET',undefined,alice.cookie)).body.relayConfigured,false);
+
     assert.equal(
       (
         await request(
