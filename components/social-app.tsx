@@ -150,7 +150,8 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           {nav.map((item) => (
             <button
               key={item.key}
-              className={`nav-item ${item.key === "rewards" || item.key === "plus" ? "mobile-extra" : ""} ${tab === item.key || (item.key === "profile" && (tab === "plus" || tab === "rewards")) ? "active" : ""}`}
+              className={`nav-item ${item.key === "rewards" || item.key === "plus" ? "mobile-extra" : ""} ${tab === item.key ? "active" : ""} ${item.key === "profile" && (tab === "plus" || tab === "rewards") ? "mobile-parent-active" : ""}`}
+              aria-current={tab === item.key ? "page" : undefined}
               onClick={() => setTab(item.key)}
             >
               <item.icon size={21} />
