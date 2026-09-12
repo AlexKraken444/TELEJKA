@@ -293,6 +293,8 @@ test(
     assert.equal((await request('calls','POST',callData,alice.cookie)).status,201);
     assert.equal((await request('calls','POST',{...callData,id:crypto.randomUUID()},alice.cookie)).status,409);
     assert.equal((await request('calls/'+callId,'GET',undefined,outsider.cookie)).status,404);
+    assert.equal((await request('calls/'+callId,'POST',{action:'candidates',deviceId:devices[0].id,signal:callData.offer},outsider.cookie)).status,404);
+    assert.equal((await request('calls/'+callId,'POST',{action:'candidates',deviceId:devices[0].id,signal:callData.offer},alice.cookie)).status,200);
     const receivedCall=(await request('calls/'+callId,'GET',undefined,bob.cookie)).body;
     assert.equal((await decryptMessage<any>(callId,receivedCall.offer,identities[1])).description.sdp,'private-sdp');
     const answer=await encryptMessage(callId,{callId,description:{type:'answer',sdp:'answer-sdp'}},devices.slice(0,1));
@@ -1334,3 +1336,4 @@ test(
     );
   },
 );
+

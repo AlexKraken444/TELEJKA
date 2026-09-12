@@ -19,6 +19,7 @@ import {
   type PublicDevice,
 } from "@/lib/crypto-chat";
 import type { Chat, User } from "@/lib/types";
+import { candidatesFromSdp } from "@/lib/call-candidates";
 type Call = {
   id: string;
   conversation_id: string;
@@ -44,6 +45,9 @@ type Active = {
   devices: PublicDevice[];
   outgoing: boolean;
   answerApplied: boolean;
+  sentSdp?: string;
+  receivedSignal?: string;
+  receivedCandidates?: Set<string>;
 };
 const CallsContext = createContext<{
   start: (chat: Chat) => void;
@@ -94,6 +98,7 @@ export function CallProvider({
     [security, setSecurity] = useState(""),
     [relay, setRelay] = useState(true),
     [audioBlocked, setAudioBlocked] = useState(false),
+    [audioInfo, setAudioInfo] = useState(""),
     [loading, setLoading] = useState(false);
   const stopRing = () => {
     if (ring.current) {
@@ -175,13 +180,24 @@ export function CallProvider({
       relayConfigured: boolean;
     }>("calls/config");
     setRelay(config.relayConfigured);
-    const pc = new RTCPeerConnection({ iceServers: config.iceServers, iceCandidatePoolSize: 2 });
+    const pc = new RTCPeerConnection({
+      iceServers: config.iceServers,
+      iceCandidatePoolSize: 2,
+    });
     stream.getTracks().forEach((t) => pc.addTrack(t, stream));
     pc.ontrack = (e) => {
-      if (remote.current) {
+      const play = () => {
+        if (!remote.current) return;
         remote.current.srcObject = e.streams[0] || new MediaStream([e.track]);
-        remote.current.play().catch(() => setAudioBlocked(true));
-      }
+        remote.current.muted = false;
+        remote.current.volume = 1;
+        remote.current
+          .play()
+          .then(() => setAudioBlocked(false))
+          .catch(() => setAudioBlocked(true));
+      };
+      e.track.onunmute = play;
+      play();
     };
     pc.onconnectionstatechange = () => {
       if (active.current?.pc !== pc) return;
@@ -399,6 +415,30 @@ export function CallProvider({
           }
           a.call = latest;
           setCurrent(latest);
+          // Gathering can finish after the initial offer/answer was sent.
+          // Forward the full updated SDP encrypted, applying only new candidates.
+          if (
+            a.pc?.localDescription?.sdp &&
+            a.devices.length &&
+            a.sentSdp !== a.pc.localDescription.sdp
+          ) {
+            const sdp = a.pc.localDescription.sdp;
+            const signal = await encryptMessage(
+              latest.id,
+              {
+                callId: latest.id,
+                description: { type: a.pc.localDescription.type, sdp },
+              },
+              a.devices,
+            );
+            if (active.current !== a) return;
+            await api(`calls/${latest.id}`, "POST", {
+              action: "candidates",
+              deviceId: a.deviceId,
+              signal,
+            });
+            a.sentSdp = sdp;
+          }
           if (a.outgoing && latest.answer && !a.answerApplied && a.pc) {
             const identity = await identityFor(user.id);
             const signal = await decryptMessage<Signal>(
@@ -416,6 +456,39 @@ export function CallProvider({
             stopRing();
             setStatus("Соединяем…");
             void safetyCode(a.pc);
+          }
+          const remoteEnvelope = a.outgoing ? latest.answer : latest.offer;
+          if (
+            a.pc?.remoteDescription &&
+            remoteEnvelope &&
+            a.receivedSignal !== remoteEnvelope.ciphertext
+          ) {
+            const identity = await identityFor(user.id);
+            const signal = await decryptMessage<Signal>(
+              latest.id,
+              remoteEnvelope,
+              identity,
+            );
+            if (
+              signal.callId !== latest.id ||
+              signal.description.type !== (a.outgoing ? "answer" : "offer")
+            )
+              throw Error("Неверные данные соединения.");
+            a.receivedCandidates ??= new Set(
+              candidatesFromSdp(a.pc.remoteDescription.sdp).map((c) =>
+                JSON.stringify(c),
+              ),
+            );
+            for (const candidate of candidatesFromSdp(
+              signal.description.sdp || "",
+            )) {
+              const key = JSON.stringify(candidate);
+              if (!a.receivedCandidates.has(key)) {
+                await a.pc.addIceCandidate(candidate);
+                a.receivedCandidates.add(key);
+              }
+            }
+            a.receivedSignal = remoteEnvelope.ciphertext;
           }
           if (
             a.deviceId &&
@@ -479,6 +552,39 @@ export function CallProvider({
     );
     return () => clearInterval(t);
   }, [connectedAt]);
+  useEffect(() => {
+    if (!current) {
+      setAudioInfo("");
+      return;
+    }
+    let alive = true;
+    const timer = setInterval(async () => {
+      const pc = active.current?.pc;
+      if (!pc) return;
+      try {
+        const stats = await pc.getStats();
+        let packets = 0;
+        stats.forEach((s) => {
+          if (s.type === "inbound-rtp" && s.kind === "audio")
+            packets += s.packetsReceived || 0;
+        });
+        if (alive)
+          setAudioInfo(
+            packets > 0
+              ? "Аудиоданные поступают от собеседника"
+              : pc.connectionState === "connected"
+                ? "Соединение есть, аудиоданные пока не поступают"
+                : "Прямое аудиосоединение ещё не установлено",
+          );
+      } catch {
+        /* Peer may close while getStats is pending. */
+      }
+    }, 3000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [current?.id]);
   const duration = `${Math.floor(elapsed / 60)
     .toString()
     .padStart(2, "0")}:${(elapsed % 60).toString().padStart(2, "0")}`;
@@ -543,13 +649,24 @@ export function CallProvider({
                 <code>{security}</code>
               </details>
             )}
-            {audioBlocked && (
+            {audioInfo && (
+              <p className="call-network-note" role="status">
+                {audioInfo}
+              </p>
+            )}
+            {(audioBlocked || connectedAt !== null) && (
               <button
                 className="secondary"
                 onClick={() => {
-                  remote.current?.play().catch(() => {});
-                  ring.current?.play().catch(() => {});
-                  setAudioBlocked(false);
+                  if (remote.current?.srcObject) {
+                    remote.current.muted = false;
+                    remote.current.volume = 1;
+                    remote.current
+                      .play()
+                      .then(() => setAudioBlocked(false))
+                      .catch(() => setAudioBlocked(true));
+                  }
+                  ring.current?.play().catch(() => setAudioBlocked(true));
                 }}
               >
                 <Volume2 size={18} />

@@ -113,6 +113,13 @@ export async function callApi(
         await sql`UPDATE voice_calls SET callee_device=${d.deviceId},answer=${sql.json(d.answer)},state='connecting',answered_at=now(),callee_seen=now() WHERE id=${callId} AND state='ringing' RETURNING id`;
       if (!rows.length)
         throw new FeatureError(409, "Звонок уже завершён или принят.");
+    } else if (d.action === "candidates") {
+      if (!d.signal || (!caller && !call.callee_device))
+        throw new FeatureError(400, "Нет данных соединения.");
+      const targetDevice = caller ? call.callee_device : call.caller_device;
+      if (targetDevice && !d.signal.keys[targetDevice])
+        throw new FeatureError(400, "Нет ключа собеседника.");
+      await sql`UPDATE voice_calls SET ${sql(caller ? "offer" : "answer")}=${sql.json(d.signal)} WHERE id=${callId} AND state IN ('ringing','connecting','active')`;
     } else if (d.action === "heartbeat") {
       if (!caller && !call.callee_device)
         throw new FeatureError(409, "Сначала прими звонок.");

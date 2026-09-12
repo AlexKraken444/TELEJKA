@@ -20,9 +20,17 @@ export const callCreateSchema = z
   .strict();
 export const callUpdateSchema = z
   .object({
-    action: z.enum(["accept", "heartbeat", "end", "decline", "fail"]),
+    action: z.enum([
+      "accept",
+      "heartbeat",
+      "end",
+      "decline",
+      "fail",
+      "candidates",
+    ]),
     deviceId: z.uuid(),
     answer: callEnvelopeSchema.optional(),
+    signal: callEnvelopeSchema.optional(),
   })
   .strict();
 export function callIceServers() {
