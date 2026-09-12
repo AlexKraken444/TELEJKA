@@ -56,7 +56,8 @@ function terminal(state: string) {
 async function gathered(pc: RTCPeerConnection) {
   if (pc.iceGatheringState === "complete") return;
   await new Promise<void>((resolve) => {
-    const timeout = setTimeout(done, 8000);
+    // Non-trickle signaling must allow slower networks to finish gathering.
+    const timeout = setTimeout(done, 15000);
     function done() {
       clearTimeout(timeout);
       pc.removeEventListener("icegatheringstatechange", check);
@@ -174,7 +175,7 @@ export function CallProvider({
       relayConfigured: boolean;
     }>("calls/config");
     setRelay(config.relayConfigured);
-    const pc = new RTCPeerConnection({ iceServers: config.iceServers });
+    const pc = new RTCPeerConnection({ iceServers: config.iceServers, iceCandidatePoolSize: 2 });
     stream.getTracks().forEach((t) => pc.addTrack(t, stream));
     pc.ontrack = (e) => {
       if (remote.current) {
@@ -188,7 +189,7 @@ export function CallProvider({
       if (state === "connected") {
         if (disconnected.current) clearTimeout(disconnected.current);
         stopRing();
-        setConnectedAt(Date.now());
+        setConnectedAt((previous) => previous ?? Date.now());
         setStatus("На связи");
         void safetyCode(pc);
       } else if (state === "failed") {
@@ -198,6 +199,7 @@ export function CallProvider({
         void finish("fail");
       } else if (state === "disconnected") {
         setStatus("Восстанавливаем связь…");
+        if (disconnected.current) clearTimeout(disconnected.current);
         disconnected.current = setTimeout(() => {
           if (pc.connectionState === "disconnected") {
             setError("Связь прервалась.");

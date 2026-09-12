@@ -30,7 +30,11 @@ export function callIceServers() {
     urls: string | string[];
     username?: string;
     credential?: string;
-  }> = [{ urls: "stun:stun.l.google.com:19302" }];
+  }> = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun.cloudflare.com:3478" },
+  ];
+  let relayConfigured = false;
   const urls = (process.env.TELEJKA_TURN_URLS || "")
     .split(",")
     .map((s) => s.trim())
@@ -40,11 +44,13 @@ export function callIceServers() {
     urls.every((s) => /^turns?:[^\s/]+$/i.test(s)) &&
     process.env.TELEJKA_TURN_USERNAME &&
     process.env.TELEJKA_TURN_PASSWORD
-  )
+  ) {
     servers.push({
       urls,
       username: process.env.TELEJKA_TURN_USERNAME,
       credential: process.env.TELEJKA_TURN_PASSWORD,
     });
-  return { iceServers: servers, relayConfigured: servers.length > 1 };
+    relayConfigured = true;
+  }
+  return { iceServers: servers, relayConfigured };
 }
