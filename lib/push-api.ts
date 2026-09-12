@@ -76,7 +76,7 @@ export async function deliverMessagePush(messageId:string){
    const [sub]=await sql`SELECT s.* FROM push_subscriptions s JOIN sessions se ON se.token_hash=s.session_hash JOIN members m ON m.user_id=s.user_id WHERE s.id=${row.subscription_id} AND se.expires_at>now() AND m.conversation_id=${message.conversation_id} AND NOT EXISTS(SELECT 1 FROM user_blocks b WHERE (b.user_id=s.user_id AND b.blocked_id=${message.user_id}) OR (b.blocked_id=s.user_id AND b.user_id=${message.user_id}))`;
    if(!sub)return;
    try{
-    await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},JSON.stringify({title:'TELEJKA',body:'Новое сообщение',messageId,chatId:message.conversation_id,userId:sub.user_id}),{vapidDetails:{subject:'https://telejka.vercel.app',publicKey:keys.public_key,privateKey:keys.private_key},TTL:86400,urgency:'high',timeout:4000,topic:messageId.replaceAll('-','')});
+    await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},JSON.stringify({title:'TELEJKA',body:'Новое сообщение',messageId,chatId:message.conversation_id,userId:sub.user_id}),{vapidDetails:{subject:'https://telejka.vercel.app',publicKey:keys.public_key,privateKey:keys.private_key},TTL:604800,urgency:'high',timeout:4000,topic:messageId.replaceAll('-','')});
     await sql`UPDATE push_deliveries SET sent_at=now(),leased_until=NULL WHERE message_id=${messageId} AND subscription_id=${sub.id}`;
     await sql`INSERT INTO notification_deliveries(user_id,message_id) VALUES(${sub.user_id},${messageId}) ON CONFLICT DO NOTHING`;
     return;
@@ -97,3 +97,4 @@ export async function sendCallPush(userId:string,callId:string,chatId:string){
   await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},JSON.stringify({kind:'call',callId,chatId,userId}),{vapidDetails:{subject:'https://telejka.vercel.app',publicKey:keys.public_key,privateKey:keys.private_key},TTL:60,urgency:'high',timeout:4000,topic:callId.replaceAll('-','')});
  }catch(error){if([404,410].includes((error as {statusCode:number}).statusCode))await sql`DELETE FROM push_subscriptions WHERE id=${sub.id}`;}}));
 }
+

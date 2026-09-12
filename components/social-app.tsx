@@ -1,4 +1,5 @@
 "use client";
+import {GlassSettings} from './glass-settings';
 import {CallProvider,CallHistory,useCalls} from "./calls";
 import {InstallApp} from "./install-app";
 
@@ -960,6 +961,7 @@ function Profile({
       <div className="section-pad">
         <ProfileMusic userId={user.id} />
       </div>
+      <GlassSettings/>
       <PushSettings userId={user.id}/><BlockedUsers/>
       <h3 className="profile-posts-title">Твои публикации</h3>
       <Feed user={user} onPerson={() => {}} mine />
