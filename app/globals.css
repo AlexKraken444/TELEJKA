@@ -3214,3 +3214,13 @@ html:root:root body :is(.sidebar,.rightbar,.page-header,.mobile-brand,.conversat
 html:root:root body :is(.rightbar,.page-header,.mobile-brand,.conversation-heading,.message-form,.modal){position:relative}
 @media(max-width:1100px){html:root:root body .rightbar.mobile-right-open{position:fixed}}
 
+#telejka-mobile-navigation{display:none}
+@media(max-width:700px){
+ html:root:root body .app-shell>.sidebar{display:none!important}
+ html:root:root body #telejka-mobile-navigation{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;position:fixed!important;inset:auto 8px max(8px,env(safe-area-inset-bottom,0px))!important;height:64px!important;min-height:64px;width:auto!important;margin:0!important;padding:5px!important;z-index:1000!important;visibility:visible!important;opacity:1!important;transform:none!important;translate:none!important;scale:1!important;overflow:visible!important;border:1px solid #91a77855;border-radius:26px;background:rgb(var(--button-tint)/var(--button-fill));-webkit-backdrop-filter:blur(var(--button-blur));backdrop-filter:blur(var(--button-blur))}
+ html:root:root body #telejka-mobile-navigation button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;padding:4px 1px;font:inherit;border:0;border-radius:21px}
+ #telejka-mobile-navigation span{font-size:11px;line-height:14px;white-space:nowrap}html:root:root body #telejka-mobile-navigation button[aria-current=page]{background-color:rgb(144 192 77/.3)!important}
+ html:root:root body .conversation-open .main-content{height:calc(var(--app-height,100dvh) - 84px - env(safe-area-inset-bottom,0px))!important}
+}
+.content-tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.content-tools button{padding:7px 10px;font-size:12px;min-height:34px}.edit-content{display:grid;gap:12px}.edit-content textarea{min-height:100px;width:100%;padding:14px}.share-dialog{max-height:80dvh;overflow:auto}.share-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px}.share-dialog>button{display:flex;width:100%;gap:12px;padding:12px;margin:8px 0;text-align:left}.repost-card{border:1px solid var(--line);border-radius:16px;margin:12px 0;padding:16px;overflow-wrap:anywhere}.edited-label{font-size:11px;color:var(--muted);margin:5px 0;display:block}.share-dialog,.edit-content{isolation:isolate}.message .content-tools{opacity:.8}
+html:root:root body .modal-backdrop{z-index:1100}html:root:root body .call-overlay{z-index:2000}html:root:root body .call-error{z-index:2100}

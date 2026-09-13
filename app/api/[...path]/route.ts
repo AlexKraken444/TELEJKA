@@ -440,7 +440,7 @@ async function handle(
           ? z.iso.datetime({ offset: true }).parse(before)
           : new Date(Date.now() + 60000).toISOString();
         const rows =
-          await sql`SELECT telejka_message_reactions(m.id,${user.id}::uuid) AS reactions,m.id, (SELECT id FROM polls WHERE message_id=m.id) poll_id, m.user_id, m.body, m.envelope, m.created_at, telejka_user(u.id,${user.id}::uuid) AS author FROM messages m JOIN users u ON u.id = m.user_id WHERE m.conversation_id = ${id} AND (${member.cleared_at}::timestamptz IS NULL OR m.created_at>${member.cleared_at}::timestamptz) AND m.created_at < ${cutoff} ORDER BY m.created_at DESC, m.id DESC LIMIT 100`;
+          await sql`SELECT telejka_message_reactions(m.id,${user.id}::uuid) AS reactions,m.id, (SELECT id FROM polls WHERE message_id=m.id) poll_id, m.user_id, m.body, m.envelope, m.created_at, m.edited_at, telejka_user(u.id,${user.id}::uuid) AS author FROM messages m JOIN users u ON u.id = m.user_id WHERE m.conversation_id = ${id} AND (${member.cleared_at}::timestamptz IS NULL OR m.created_at>${member.cleared_at}::timestamptz) AND m.created_at < ${cutoff} ORDER BY m.created_at DESC, m.id DESC LIMIT 100`;
         return json(rows.reverse());
       }
       if (req.method === "POST") {

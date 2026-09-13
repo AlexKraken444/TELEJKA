@@ -1,4 +1,5 @@
 "use client";
+import {ShareButton} from "./content-tools";
 import {useEffect,useState} from 'react';
 import {api,UserName,errorText} from './shared';
 import {registerDevice} from './preferences';
@@ -16,7 +17,7 @@ export function InlinePoll({id,user,chatId}:{id:string;user:User;chatId?:string}
  async function load(){const p=await api<Poll>('polls/'+id);const content=chatId?await decryptMessage<Content>(chatId,p.payload as Envelope,await registerDevice(user.id)):p.payload as Content;return {...p,content};}
  useEffect(()=>{let alive=true;const refresh=()=>{if(document.hidden)return;void load().then(p=>{if(alive){setPoll(p);setError('')}}).catch(e=>{if(alive)setError(errorText(e))})};refresh();const timer=setInterval(refresh,15000);return()=>{alive=false;clearInterval(timer)}},[id,chatId,user.id]);
  const total=Object.values(poll?.counts||{}).reduce((a,b)=>a+b,0);
- return <div className="inline-poll">{error&&<p role="alert" className="error">{error}</p>}{poll?.content?<><h3>{poll.content.question}</h3><div className="poll-options">{poll.content.options.map((option,i)=>{const percent=total?Math.round((poll.counts[i]||0)/total*100):0;return <button key={i} className="poll-option" aria-pressed={poll.choice===i} disabled={busy} onClick={async()=>{setBusy(true);try{await api('polls/'+id,'POST',{choice:i});setPoll(await load())}catch(e){setError(errorText(e))}finally{setBusy(false)}}}><span className="poll-fill" style={{width:percent+'%'}}/><span>{poll.choice===i?'✓ ':''}{option}</span><b>{percent}%</b></button>})}</div><small>{total} голосов · один вариант</small></>:!error&&<p>Загрузка опроса…</p>}</div>
+ return <div className="inline-poll">{error&&<p role="alert" className="error">{error}</p>}{poll?.content?<><h3>{poll.content.question}</h3><div className="poll-options">{poll.content.options.map((option,i)=>{const percent=total?Math.round((poll.counts[i]||0)/total*100):0;return <button key={i} className="poll-option" aria-pressed={poll.choice===i} disabled={busy} onClick={async()=>{setBusy(true);try{await api('polls/'+id,'POST',{choice:i});setPoll(await load())}catch(e){setError(errorText(e))}finally{setBusy(false)}}}><span className="poll-fill" style={{width:percent+'%'}}/><span>{poll.choice===i?'✓ ':''}{option}</span><b>{percent}%</b></button>})}</div><small>{total} голосов · один вариант</small>{chatId&&<ShareButton userId={user.id} author={poll.author.name} content={{body:poll.content.question+"\n"+poll.content.options.join("\n"),attachments:[]}}/>}</>:!error&&<p>Загрузка опроса…</p>}</div>
 }
 export function Polls({user,chatId,authorId,readOnly=false,onCreated}:{user:User;chatId?:string;authorId?:string;readOnly?:boolean;onCreated?:()=>void}){
  const [polls,setPolls]=useState<Poll[]>([]),[creating,setCreating]=useState(false),[question,setQuestion]=useState(''),[options,setOptions]=useState(['','']),[error,setError]=useState(''),[busy,setBusy]=useState(false);

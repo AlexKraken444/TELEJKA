@@ -1,4 +1,6 @@
 "use client";
+import {PostTools,RepostCard} from "./content-tools";
+import {MobileNavigation} from "./mobile-navigation";
 import {OnlineContext,useOnline,OnlineStatus,ChatActivity} from "./presence";
 import {VoiceRecorder} from "./voice-recorder";
 import {Polls,FollowControl,InlinePoll} from "./social-extras";
@@ -141,7 +143,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     { key: "plus" as const, label: "TELEJKA+", icon: Settings },
   ];
   return (
-    <OnlineContext.Provider value={online}><CallProvider user={user}><StudioRuntime/><div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
+    <OnlineContext.Provider value={online}><CallProvider user={user}><StudioRuntime/><MobileNavigation tab={tab} onChange={setTab}/><div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
       <PushSync userId={user.id}/><DailyVisit userId={user.id} />
       <Notifications
         userId={user.id}
@@ -667,7 +669,8 @@ function PostCard({
           )}
         </div>
         <>{post.poll_id?<InlinePoll id={post.poll_id} user={user}/>:<p className="post-body">{post.body}</p>}</>
-        <MediaList items={post.attachments} />
+        {post.is_repost&&<RepostCard id={post.repost_id}/>}
+        <MediaList items={post.attachments} />{post.edited_at&&<small className="edited-label">отредактировано</small>}<PostTools post={post} userId={user.id} onChange={onChange}/>
         <Reactions
           path={"posts/" + post.id}
           initial={post.reactions}

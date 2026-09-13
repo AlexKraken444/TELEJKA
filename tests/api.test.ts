@@ -187,6 +187,13 @@ test(
       alice.cookie,
     );
     assert.equal(post.status, 201);
+    assert.equal((await request('posts/'+post.body.id,'PATCH',{body:'чужая правка'},bob.cookie)).status,404);
+    const editText='Привет, TELEJKA! #Привет #привет #NextJS';
+    assert.equal((await request('posts/'+post.body.id,'PATCH',{body:editText},alice.cookie)).status,200);
+    assert.ok((await request('posts/'+post.body.id,'GET',undefined,bob.cookie)).body.edited_at);
+    const repost=await request('posts/'+post.body.id+'/repost','POST',{},bob.cookie);assert.equal(repost.status,201,JSON.stringify(repost.body));
+    assert.equal((await request('posts/'+repost.body.id,'GET',undefined,bob.cookie)).body.repost_id,post.body.id);
+    await request('posts/'+repost.body.id,'DELETE',{},bob.cookie);
     const profile = await request(
       `users/${alice.id}`,
       "GET",
@@ -327,6 +334,13 @@ test(
     await db.query('DELETE FROM messages WHERE id=$1',[cp.body.id]);
     assert.equal((await request('polls/'+cp.body.id,'GET',undefined,bob.cookie)).status,404);
 
+    const editableEnvelope=await encryptMessage(direct.body.id,{body:'До правки',attachments:[]},devices.slice(0,2));
+    const editable=await request('chats/'+direct.body.id+'/messages','POST',{envelope:editableEnvelope,clientId:crypto.randomUUID()},alice.cookie);
+    const changedEnvelope=await encryptMessage(direct.body.id,{body:'После правки',attachments:[]},devices.slice(0,2));
+    assert.equal((await request('chats/'+direct.body.id+'/messages/'+editable.body.id,'PATCH',{envelope:changedEnvelope},bob.cookie)).status,404);
+    assert.equal((await request('chats/'+direct.body.id+'/messages/'+editable.body.id,'PATCH',{envelope:changedEnvelope},alice.cookie)).status,200);
+    const changed=(await request('chats/'+direct.body.id+'/messages','GET',undefined,bob.cookie)).body.find((m:any)=>m.id===editable.body.id);assert.ok(changed.edited_at);assert.equal((await decryptMessage<any>(direct.body.id,changed.envelope,identities[1])).body,'После правки');
+    await db.query('DELETE FROM messages WHERE id=$1',[editable.body.id]);
     // Calls: encrypted signaling, access controls, busy state, timeout and teardown.
     const callId=crypto.randomUUID();
     const callOffer=await encryptMessage(callId,{callId,description:{type:'offer',sdp:'private-sdp'}},devices.slice(0,2));

@@ -147,6 +147,18 @@ export function MediaList({ items = [] }: { items?: Attachment[] }) {
     </div>
   );
 }
+const attachmentCache=new Map<string,Blob>();let cacheSize=0;
+export async function loadAttachment(item:Attachment):Promise<Blob>{
+ const key=item.id+':'+(item.key||'');const cached=attachmentCache.get(key);if(cached)return cached;
+ const info=await api<{chunks:number;size:number}>('uploads/'+item.id);
+ if(info.size>26214416||info.chunks>101)throw Error('Недопустимый размер файла.');
+ const data=new Uint8Array(info.size);
+ for(let base=0;base<info.chunks;base+=4)await Promise.all(Array.from({length:Math.min(4,info.chunks-base)},async(_,n)=>{const i=base+n;const chunk=await api<{data:string}>('uploads/'+item.id+'/'+i);data.set(from64(chunk.data),i*262144)}));
+ const plain=item.key&&item.iv?await decryptFile(data,item.key,item.iv):data;
+ const blob=new Blob([plain as BlobPart],{type:inlineTypes.includes(item.mime)?item.mime:'application/octet-stream'});
+ while(cacheSize+blob.size>32*1024*1024&&attachmentCache.size){const first=attachmentCache.keys().next().value!;cacheSize-=attachmentCache.get(first)!.size;attachmentCache.delete(first)}
+ if(blob.size<=32*1024*1024){cacheSize-=attachmentCache.get(key)?.size||0;attachmentCache.set(key,blob);cacheSize+=blob.size}return blob;
+}
 function Media({ item }: { item: Attachment }) {
   const root = useRef<HTMLDivElement>(null),
     alive = useRef(true),
@@ -167,25 +179,8 @@ function Media({ item }: { item: Attachment }) {
     setBusy(true);
     setError("");
     try {
-      const info = await api<{ chunks: number; size: number }>(
-        `uploads/${item.id}`,
-      );
-      if (info.size > 26214416 || info.chunks > 101)
-        throw Error("Недопустимый размер файла.");
-      const data = new Uint8Array(info.size);
-      for (let i = 0; i < info.chunks; i++) {
-        const chunk = await api<{ data: string }>(`uploads/${item.id}/${i}`);
-        data.set(from64(chunk.data), i * 262144);
-      }
-      const plain =
-        item.key && item.iv ? await decryptFile(data, item.key, item.iv) : data;
-      const mime = inlineTypes.includes(item.mime)
-        ? item.mime
-        : "application/octet-stream";
-      if (alive.current)
-        setUrl(
-          URL.createObjectURL(new Blob([plain as BlobPart], { type: mime })),
-        );
+      const blob=await loadAttachment(item);
+      if(alive.current)setUrl(URL.createObjectURL(blob));
     } catch (e) {
       if (alive.current) setError(errorText(e));
     } finally {
@@ -218,7 +213,7 @@ function Media({ item }: { item: Attachment }) {
       {url ? (
         <>
           {publicTypes.includes(item.mime) && item.mime.startsWith("image/") ? (
-            <img src={url} alt={item.name} />
+            <img src={url} alt={item.name} decoding="async" />
           ) : publicTypes.includes(item.mime) &&
             item.mime.startsWith("video/") ? (
             <video
