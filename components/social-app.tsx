@@ -1,5 +1,5 @@
 "use client";
-import {Polls,FollowControl} from "./social-extras";
+import {Polls,FollowControl,InlinePoll} from "./social-extras";
 import {StudioRuntime} from "./studio";
 import {GlassSettings} from './glass-settings';
 import {CallProvider,CallHistory,useCalls} from "./calls";
@@ -200,7 +200,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           </button>
         </div>
       </aside>
-      <main className={`main-content ${tab === "chats" ? "chat-main" : ""}`}>
+      <main className={`main-content view-${tab} ${tab === "chats" ? "chat-main" : ""}`}>
         <div className="mobile-brand">
           <Logo />
           <ThemeToggle />
@@ -522,7 +522,7 @@ function Feed({
           {error}
         </p>
       )}
-      <Polls user={user} authorId={authorId || (mine || filter ? user.id : undefined)} readOnly={!!authorId || !!mine}/>
+      <Polls user={user} readOnly={!!authorId || !!mine} onCreated={()=>refresh()}/>
       {loading ? (
         <p className="loading">Загружаем ленту…</p>
       ) : posts.length ? (
@@ -661,7 +661,7 @@ function PostCard({
             </button>
           )}
         </div>
-        <p className="post-body">{post.body}</p>
+        <>{post.poll_id?<InlinePoll id={post.poll_id} user={user}/>:<p className="post-body">{post.body}</p>}</>
         <MediaList items={post.attachments} />
         <Reactions
           path={"posts/" + post.id}
@@ -1347,7 +1347,6 @@ function Conversation({
               el.scrollHeight - el.scrollTop - el.clientHeight < 100;
         }}
       >
-        <Polls user={user} chatId={chat.id}/>
         {more && (
           <button className="text-button older" onClick={older}>
             Предыдущие сообщения
@@ -1371,7 +1370,7 @@ function Conversation({
                 <UserName user={m.author} />
               </strong>
             )}
-            <EncryptedMessage message={m} chatId={chat.id} userId={user.id} />
+            {m.poll_id?<InlinePoll id={m.poll_id} user={user} chatId={chat.id}/>:<EncryptedMessage message={m} chatId={chat.id} userId={user.id} />}
             <Reactions
               path={"messages/" + m.id}
               initial={m.reactions}
@@ -1409,6 +1408,7 @@ function Conversation({
           </button>
         </div>
       )}
+      <Polls user={user} chatId={chat.id}/>
       <div className="chat-files">
         <FilePicker files={files} onChange={setFiles} disabled={busy} chat inputId="chat-file-input" />
       </div>

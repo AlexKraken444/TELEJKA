@@ -17,6 +17,7 @@ export type User = {
   created_at?: string;
 };
 export type Post = {
+  poll_id?: string | null;
   reactions?: Reaction[];
   attachments?: import("@/components/media").Attachment[];
   id: string;
@@ -44,6 +45,7 @@ export type Chat = {
   updated_at: string;
 };
 export type Message = {
+  poll_id?: string | null;
   reactions?: Reaction[];
   envelope?: import("./crypto-chat").Envelope | null;
   id: string;

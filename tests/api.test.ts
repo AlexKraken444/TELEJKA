@@ -128,6 +128,9 @@ test(
     const pollList=await request('polls','GET',undefined,bob.cookie);
     assert.deepEqual(pollList.body[0].counts,{'1':1});
     assert.equal(pollList.body[0].choice,1);
+    assert.equal((await request('posts','GET',undefined,bob.cookie)).body[0].poll_id,poll.body.id);
+    assert.equal((await request('posts/'+poll.body.id,'DELETE',{},alice.cookie)).status,200);
+    assert.equal((await request('polls/'+poll.body.id,'GET',undefined,alice.cookie)).status,404);
     assert.equal((await request('studio','POST',{config:{}},alice.cookie)).status,403);
     assert.equal((await request('studio/unlock','POST',{password:'anything'},alice.cookie)).status,403);
 
@@ -308,6 +311,9 @@ test(
     assert.equal((await request('polls/'+cp.body.id,'POST',{choice:0},outsider.cookie)).status,404);
     assert.equal((await request('polls/'+cp.body.id,'POST',{choice:0},bob.cookie)).status,200);
     assert.deepEqual((await request('polls?chat='+direct.body.id,'GET',undefined,bob.cookie)).body[0].payload,encryptedPoll);
+    assert.equal((await request('chats/'+direct.body.id+'/messages','GET',undefined,bob.cookie)).body[0].poll_id,cp.body.id);
+    await db.query('DELETE FROM messages WHERE id=$1',[cp.body.id]);
+    assert.equal((await request('polls/'+cp.body.id,'GET',undefined,bob.cookie)).status,404);
 
     // Calls: encrypted signaling, access controls, busy state, timeout and teardown.
     const callId=crypto.randomUUID();
