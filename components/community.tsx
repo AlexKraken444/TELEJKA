@@ -380,7 +380,7 @@ export function PlusSettings({ userId, onSaved }: { userId:string; onSaved: (u: 
               </div>
             </>
           )}
-          </div><div className="settings-card"><div className="settings-section-title"><span>03</span><div><h2>Музыка</h2><p>Композиция на странице твоего профиля</p></div></div><ProfileMusic userId={userId} editable enabled={data.plus_active}/></div><div className="settings-save"><button className="primary" disabled={busy} onClick={save}>
+          </div><div className="settings-card"><div className="settings-section-title"><span>03</span><div><h2>Музыка</h2><p>Композиция на странице твоего профиля</p></div></div><ProfileMusic userId={userId} editable enabled={data.plus_active}/></div><div className="settings-save"><button data-studio-action="savePlus" className="primary" disabled={busy} onClick={save}>
             Сохранить настройки
           </button>
           {saved && <p role="status">Сохранено</p>}</div>

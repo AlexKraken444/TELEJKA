@@ -21,6 +21,7 @@ const publicTypes = [
   "video/ogg",
   "video/quicktime",
 ];
+const inlineTypes = [...publicTypes,"audio/webm","audio/mp4","audio/ogg","audio/mpeg","audio/wav"];
 export function FilePicker({
   files,
   onChange,
@@ -150,7 +151,7 @@ function Media({ item }: { item: Attachment }) {
   const root = useRef<HTMLDivElement>(null),
     alive = useRef(true),
     loading = useRef(false);
-  const inline = publicTypes.includes(item.mime);
+  const inline = inlineTypes.includes(item.mime);
   const [url, setUrl] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -178,7 +179,7 @@ function Media({ item }: { item: Attachment }) {
       }
       const plain =
         item.key && item.iv ? await decryptFile(data, item.key, item.iv) : data;
-      const mime = publicTypes.includes(item.mime)
+      const mime = inlineTypes.includes(item.mime)
         ? item.mime
         : "application/octet-stream";
       if (alive.current)
@@ -231,7 +232,7 @@ function Media({ item }: { item: Attachment }) {
                 )
               }
             />
-          ) : null}
+          ) : item.mime.startsWith("audio/") ? <audio src={url} controls preload="metadata" aria-label="Голосовое сообщение"/> : null}
           <a className="text-button" href={url} download={item.name}>
             Скачать {item.name}
           </a>

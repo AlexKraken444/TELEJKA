@@ -1,3 +1,4 @@
+import {presenceApi} from "./presence-api";
 import {socialStudioApi} from "./social-studio-api";
 import {callApi} from "./call-api";
 import {pushApi,scheduleMessagePush} from "./push-api";
@@ -56,6 +57,7 @@ export async function featureApi(
 ): Promise<Response | undefined> {
   const sql = db(),
     route = path.join("/");
+  const presenceResponse=await presenceApi(req,path,input,userId);if(presenceResponse)return presenceResponse;
   const studioResponse=await socialStudioApi(req,path,input,userId);if(studioResponse)return studioResponse;
   const callResponse=await callApi(req,path,input,userId);if(callResponse)return callResponse;
   const pushResponse=await pushApi(req,path,input,userId);if(pushResponse)return pushResponse;

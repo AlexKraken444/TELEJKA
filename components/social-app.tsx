@@ -1,4 +1,6 @@
 "use client";
+import {OnlineContext,useOnline,OnlineStatus,ChatActivity} from "./presence";
+import {VoiceRecorder} from "./voice-recorder";
 import {Polls,FollowControl,InlinePoll} from "./social-extras";
 import {StudioRuntime} from "./studio";
 import {GlassSettings} from './glass-settings';
@@ -59,6 +61,7 @@ import { EncryptedMessage } from "./encrypted-message";
 import { encryptMessage, type PublicDevice } from "@/lib/crypto-chat";
 type Tab = "plus" | "rewards" | "feed" | "chats" | "people" | "profile" | "account";
 export function SocialApp({ initialUser }: { initialUser: User }) {
+ const online=useOnline();const [rightOpen,setRightOpen]=useState(false);
   useEffect(() => {
     const viewport = window.visualViewport;
     const update = () =>
@@ -88,6 +91,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
       setChatId(chat); setTab('chats'); window.history.replaceState(null, '', '/feed');
     }
   }, [initialUser.id]);
+  useEffect(()=>{const navigate=(event:Event)=>{const next=(event as CustomEvent).detail;if(['feed','chats','people','profile','plus','rewards'].includes(next))setTab(next)};window.addEventListener('studio-tab',navigate);return()=>window.removeEventListener('studio-tab',navigate)},[]);
   const [people, setPeople] = useState<User[]>([]),
     [query, setQuery] = useState("");
   useEffect(() => {
@@ -137,7 +141,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     { key: "plus" as const, label: "TELEJKA+", icon: Settings },
   ];
   return (
-    <CallProvider user={user}><StudioRuntime/><div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
+    <OnlineContext.Provider value={online}><CallProvider user={user}><StudioRuntime/><div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
       <PushSync userId={user.id}/><DailyVisit userId={user.id} />
       <Notifications
         userId={user.id}
@@ -152,6 +156,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           {nav.map((item) => (
             <button
               key={item.key}
+              data-studio-tab={item.key}
               className={`nav-item ${item.key === "rewards" || item.key === "plus" ? "mobile-extra" : ""} ${tab === item.key ? "active" : ""} ${item.key === "profile" && (tab === "plus" || tab === "rewards") ? "mobile-parent-active" : ""}`}
               aria-current={tab === item.key ? "page" : undefined}
               onClick={() => setTab(item.key)}
@@ -163,7 +168,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           ))}
         </nav>
         <button
-          className="primary write-button"
+          className="primary write-button" data-studio-action="compose"
           onClick={() => {
             setTab("feed");
             setTimeout(() => document.getElementById("post-body")?.focus(), 50);
@@ -185,7 +190,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             <ChevronRight size={16} />
           </button>
           <button
-            className="logout"
+            className="logout" data-studio-action="logout"
             onClick={async () => {
               try {
                 await api("auth/logout", "POST", {});
@@ -203,7 +208,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
       <main className={`main-content view-${tab} ${tab === "chats" ? "chat-main" : ""}`}>
         <div className="mobile-brand">
           <Logo />
-          <ThemeToggle />
+          <button className="icon-button mobile-right-toggle" aria-label="Хэштеги и люди" onClick={()=>setRightOpen(!rightOpen)}><Hash size={20}/></button><ThemeToggle />
         </div>
         {error && (
           <div className="error global-error" role="alert">
@@ -277,8 +282,8 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
         )}
         {tab === "rewards" && <Rewards onUpdated={setUser} />}
       </main>
-      {tab !== "chats" && (
-        <aside className="rightbar">
+      {(tab !== "chats" || rightOpen) && (
+        <aside className={`rightbar ${rightOpen?"mobile-right-open":""}`}><button className="mobile-right-close" onClick={()=>setRightOpen(false)}>Закрыть ×</button>
           <PopularHashtags />
           <div className="right-title">
             <h3>Новые лица</h3>
@@ -311,7 +316,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           </button>
         </aside>
       )}
-    </div></CallProvider>
+    </div></CallProvider></OnlineContext.Provider>
   );
 }
 function ArrowRightIcon() {
@@ -380,7 +385,7 @@ function Person({
             <UserName user={person} />
           </strong>
         </button>
-        <p>{person.bio || ""}</p><small>{person.follower_count ?? 0} подписчиков</small>
+        <p>{person.bio || ""}</p><OnlineStatus id={person.id}/><small>{person.follower_count ?? 0} подписчиков</small>
       </div>
       <button className="secondary" aria-label={`Написать ${person.name}`} onClick={onChat}>
         <MessageCircle size={16} />
@@ -479,7 +484,7 @@ function Feed({
             Мои посты
           </button>
           <button
-            className="refresh-feed"
+            className="refresh-feed" data-studio-action="refreshFeed"
             onClick={() => refresh()}
             aria-label="Обновить ленту"
           >
@@ -508,7 +513,7 @@ function Feed({
               </span>
               <button
                 className="primary"
-                disabled={busy || (!body.trim() && !files.length)}
+                data-studio-action="publishPost" disabled={busy || (!body.trim() && !files.length)}
               >
                 {busy ? "Публикуем…" : "Опубликовать"}
                 <ArrowUpRight size={17} />
@@ -798,7 +803,7 @@ function PublicProfile({
         <h2>
           <UserName user={profile} />
         </h2>
-        <FollowControl target={profile.id} userId={user.id}/>{profile.bio && <p className="profile-bio">{profile.bio}</p>}
+        <OnlineStatus id={profile.id}/><FollowControl target={profile.id} userId={user.id}/>{profile.bio && <p className="profile-bio">{profile.bio}</p>}
         {profile.can_view !== false && <ProfileMusic userId={profile.id} />}
         <p className="muted">
           {profile.post_count !== undefined
@@ -950,7 +955,7 @@ function Profile({
             {error}
           </p>
         )}
-        <button className="primary" disabled={busy}>
+        <button className="primary" data-studio-action="saveProfile" disabled={busy}>
           {saved ? (
             <>
               <Check size={17} /> Сохранено
@@ -1022,7 +1027,7 @@ function Chats({
       <Header
         title="Сообщения"
         action={
-          <button className="secondary" onClick={() => setCreating(true)}>
+          <button className="secondary" data-studio-action="newChat" onClick={() => setCreating(true)}>
             <Plus size={18} />
             <span>Новый чат</span>
           </button>
@@ -1310,8 +1315,8 @@ function Conversation({
           <small>
             {chat.is_group
               ? `${chat.participants.length} участников`
-              : "Личный разговор"}
-          </small>
+              : <OnlineStatus id={chat.participants.find(p=>p.id!==user.id)?.id||user.id}/> }
+          </small><ChatActivity chatId={chat.id} body={body} uploading={busy&&files.length>0}/>
         </div>
         {!chat.is_group&&<button className="icon-button call-start" aria-label="Позвонить" title="Голосовой звонок" disabled={calls.busy} onClick={()=>calls.start(chat)}><Phone size={20}/></button>}
         <button
@@ -1412,7 +1417,7 @@ function Conversation({
       <div className="chat-files">
         <FilePicker files={files} onChange={setFiles} disabled={busy} chat inputId="chat-file-input" />
       </div>
-      <form className="message-form" onSubmit={send}>
+      <form className="message-form" onSubmit={send}><VoiceRecorder disabled={busy||files.length>=4} onFile={file=>setFiles(current=>[...current,file].slice(0,4))}/>
         <label className="message-attach icon-button" htmlFor="chat-file-input" title="Прикрепить файл"><Paperclip size={21}/><span className="sr-only">Прикрепить файл</span></label>
         <textarea
           placeholder="Напиши что-нибудь…"
@@ -1434,7 +1439,7 @@ function Conversation({
         />
         <button
           className="primary"
-          aria-label="Отправить сообщение"
+          aria-label="Отправить сообщение" data-studio-action="sendMessage"
           disabled={busy || (!body.trim() && !files.length)}
         >
           <Send size={19} />

@@ -38,7 +38,7 @@ export async function api<T>(
   ) {
     window.dispatchEvent(new Event("telejka-posts-changed"));
   }
-  if (method !== "GET") window.dispatchEvent(new Event("telejka-activity"));
+  if (method !== "GET" && !/(^|\/)presence$/.test(path)) window.dispatchEvent(new Event("telejka-activity"));
   return body;
 }
 export function Avatar({

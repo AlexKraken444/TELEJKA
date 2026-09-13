@@ -219,6 +219,11 @@ test(
       404,
     );
     assert.equal((await request(`users/${alice.id}`)).status, 401);
+    const tagged=await request('hashtag?tag=nextjs','GET',undefined,bob.cookie);
+    assert.equal(tagged.status,200,JSON.stringify(tagged.body));assert.equal(tagged.body.total,1);assert.equal(tagged.body.posts[0].id,post.body.id);
+    assert.equal((await request('hashtag?tag=missing','GET',undefined,bob.cookie)).body.total,0);
+    assert.equal((await request('presence','POST',{},alice.cookie)).status,200);
+    assert.ok((await request('presence','POST',{},bob.cookie)).body.some((r:any)=>r.user_id===alice.id));
     const trends = await request("hashtags", "GET", undefined, alice.cookie);
     assert.equal(trends.status, 200);
     assert.deepEqual(trends.body, [
@@ -304,6 +309,13 @@ test(
       bob.cookie,
     );
     assert.equal(reverse.body.id, direct.body.id);
+    assert.equal((await request('chats/'+direct.body.id+'/presence','POST',{state:'typing'},alice.cookie)).status,200);
+    assert.equal((await request('chats/'+direct.body.id+'/presence','GET',undefined,bob.cookie)).body[0].state,'typing');
+    assert.equal((await request('chats/'+direct.body.id+'/presence','GET',undefined,outsider.cookie)).status,404);
+    await request('chats/'+direct.body.id+'/presence','POST',{state:'uploading'},alice.cookie);
+    assert.equal((await request('chats/'+direct.body.id+'/presence','GET',undefined,bob.cookie)).body[0].state,'uploading');
+    await request('chats/'+direct.body.id+'/presence','POST',{state:'idle'},alice.cookie);
+    assert.deepEqual((await request('chats/'+direct.body.id+'/presence','GET',undefined,bob.cookie)).body,[]);
     const encryptedPoll=await encryptMessage(direct.body.id,{question:'Private poll',options:['One','Two']},devices.slice(0,2));
     const cp=await request('polls?chat='+direct.body.id,'POST',{payload:encryptedPoll,optionCount:2},alice.cookie);
     assert.equal(cp.status,200,JSON.stringify(cp.body));

@@ -10,6 +10,11 @@ test('visual action sequences validate without executable code',()=>{
  assert.equal(studioSchema.safeParse({...config,blocks:[{...config.blocks[0],actions:[{type:'wait',seconds:999}]}]}).success,false);
  assert.equal(studioSchema.safeParse({...emptyStudio,overrides:[{target:'.main-content.view-feed > div:nth-child(2) > h1:nth-child(1)',x:60,y:27}]}).success,true);
 });
+test('free canvas accepts large coordinates, sizes, layers and native actions',()=>{
+ const config={...emptyStudio,blocks:[{id:'free',type:'button',text:'Send',layout:{x:2500,y:1800,width:320,height:80,z:9},actions:[{type:'builtin',name:'sendMessage'},{type:'tab',tab:'chats'},{type:'theme',theme:'toggle'}]}],overrides:[{target:'.sidebar',x:-700,y:1200,width:400,height:900,z:10}]};
+ assert.equal(studioSchema.safeParse(config).success,true);
+ assert.equal(studioSchema.safeParse({...config,blocks:[{...config.blocks[0],actions:[{type:'builtin',name:'arbitrary-server-code'}]}]}).success,false);
+});
 test('existing polls retain dates and votes when becoming posts',async()=>{
  const db=await PGlite.create();try{
  for(const file of ['schema','features'])await db.exec(await readFile(new URL('../db/'+file+'.sql',import.meta.url),'utf8'));
