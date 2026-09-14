@@ -369,7 +369,7 @@ async function handle(
           Number(req.nextUrl.searchParams.get("offset")) || 0,
         );
         return json(
-          await sql`SELECT c.id, c.body, c.attachments, c.created_at, telejka_user(u.id,${user.id}::uuid) AS author FROM comments c JOIN users u ON u.id = c.user_id WHERE c.post_id = ${id} AND telejka_can_view(c.user_id,${user.id}::uuid) ORDER BY c.created_at, c.id LIMIT 50 OFFSET ${offset}`,
+          await sql`SELECT c.id, c.body, c.attachments, c.created_at, c.edited_at, telejka_user(u.id,${user.id}::uuid) AS author FROM comments c JOIN users u ON u.id = c.user_id WHERE c.post_id = ${id} AND telejka_can_view(c.user_id,${user.id}::uuid) ORDER BY c.created_at, c.id LIMIT 50 OFFSET ${offset}`,
         );
       }
       if (path[2] === "comments" && req.method === "POST") {
@@ -463,7 +463,7 @@ async function handle(
       (error as { code?: string }).code ?? "unknown",
     );
     return json(
-      { error: "Сервер временно недоступен. Попробуйте ещё раз." },
+      { error: "Сервер временно недоступен. Попробуйте ещё раз.", resource: String((error as Error).message).toLowerCase().split(/[^a-z]+/).filter(w=>["compute","storage","disk","size","transfer","egress","bandwidth","quota","limit","limits","exceeded","connections","memory","project","endpoint","disabled","usage","capacity","data","monthly","plan","upgrade","running","time"].includes(w)).slice(0,24).join(" "), reason: /compute.*(quota|limit)|(quota|limit).*compute/i.test(String((error as Error).message))?'COMPUTE_QUOTA':/storage|disk.*(full|quota)|size.*limit/i.test(String((error as Error).message))?'STORAGE_LIMIT':/suspend|disabled/i.test(String((error as Error).message))?'DATABASE_SUSPENDED':/too many|connection.*limit/i.test(String((error as Error).message))?'CONNECTION_LIMIT':'UNKNOWN', diagnostic: /^[A-Z0-9_]{2,32}$/.test(String((error as {code?:string}).code||"")) ? (error as {code?:string}).code : "UNAVAILABLE" },
       503,
     );
   }

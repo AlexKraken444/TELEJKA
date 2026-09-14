@@ -1,5 +1,5 @@
 "use client";
-import {PostTools,RepostCard} from "./content-tools";
+import {PostTools,RepostCard,EditContent} from "./content-tools";
 import {MobileNavigation} from "./mobile-navigation";
 import {OnlineContext,useOnline,OnlineStatus,ChatActivity} from "./presence";
 import {VoiceRecorder} from "./voice-recorder";
@@ -7,6 +7,8 @@ import {Polls,FollowControl,InlinePoll} from "./social-extras";
 import {StudioRuntime} from "./studio";
 import {GlassSettings} from './glass-settings';
 import {CallProvider,CallHistory,useCalls} from "./calls";
+import {InstallBanner} from './install-banner';
+import {Marketplace} from './economy';
 import {InstallApp} from "./install-app";
 
 import {PushSettings,PushSync} from "./push-settings";
@@ -61,7 +63,7 @@ import { ThemeToggle, Notifications, registerDevice } from "./preferences";
 import { FilePicker, uploadFiles, MediaList } from "./media";
 import { EncryptedMessage } from "./encrypted-message";
 import { encryptMessage, type PublicDevice } from "@/lib/crypto-chat";
-type Tab = "plus" | "rewards" | "feed" | "chats" | "people" | "profile" | "account";
+type Tab = "market" | "plus" | "rewards" | "feed" | "chats" | "people" | "profile" | "account";
 export function SocialApp({ initialUser }: { initialUser: User }) {
  const online=useOnline();const [rightOpen,setRightOpen]=useState(false);
   useEffect(() => {
@@ -93,7 +95,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
       setChatId(chat); setTab('chats'); window.history.replaceState(null, '', '/feed');
     }
   }, [initialUser.id]);
-  useEffect(()=>{const navigate=(event:Event)=>{const next=(event as CustomEvent).detail;if(['feed','chats','people','profile','plus','rewards'].includes(next))setTab(next)};window.addEventListener('studio-tab',navigate);return()=>window.removeEventListener('studio-tab',navigate)},[]);
+  useEffect(()=>{const navigate=(event:Event)=>{const next=(event as CustomEvent).detail;if(['feed','chats','people','profile','plus','rewards','market'].includes(next))setTab(next)};window.addEventListener('studio-tab',navigate);return()=>window.removeEventListener('studio-tab',navigate)},[]);
   const [people, setPeople] = useState<User[]>([]),
     [query, setQuery] = useState("");
   useEffect(() => {
@@ -139,6 +141,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     { key: "chats" as const, label: "Сообщения", icon: MessageCircle },
     { key: "people" as const, label: "Люди", icon: Users },
     { key: "rewards" as const, label: "БАТОНчики", icon: Sparkles },
+    { key: "market" as const, label: "Рынок", icon: Sparkles },
     { key: "profile" as const, label: "Профиль", icon: UserRound },
     { key: "plus" as const, label: "TELEJKA+", icon: Settings },
   ];
@@ -224,7 +227,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             </button>
           </div>
         )}
-        {tab === "feed" && <><details className="feed-install feed-app-settings"><summary>Установить приложение и включить уведомления</summary><InstallApp /><PushSettings userId={user.id} compact /></details><Feed user={user} onPerson={openProfile} /></>}
+        {tab === "feed" && <><InstallBanner userId={user.id}/><Feed user={user} onPerson={openProfile} /></>}
         {tab === "account" && viewed && (
           <PublicProfile
             key={viewed.id}
@@ -276,13 +279,13 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           </>
         )}
         {tab === "plus" && <><Header title="TELEJKA+" subtitle="Подписка, оформление и приватность"/><div className="plus-intro section-pad"><span className="plus-emblem" aria-hidden="true"><i className="centered-plus"/></span><div><h2>{user.plus_active?"Твоя TELEJKA+":"Больше возможностей"}</h2><p>{user.plus_active?"Настрой подписку под себя.":"Реакции, цвет имени, музыка и закрытый профиль."}</p></div><button className="secondary" onClick={()=>setTab("rewards")}>{user.plus_active?"Продлить":"Подключить"}</button></div><PlusSettings userId={user.id} onSaved={setUser}/></>}
-        {(tab === "profile" || tab === "plus" || tab === "rewards") && <nav className="mobile-settings-tabs" aria-label="Настройки аккаунта"><button className={tab==='profile'?'active':''} onClick={()=>setTab('profile')}>Профиль</button><button className={tab==='rewards'?'active':''} onClick={()=>setTab('rewards')}>БАТОНчики</button><button className={tab==='plus'?'active':''} onClick={()=>setTab('plus')}>TELEJKA+</button></nav>}
+        {(tab === "profile" || tab === "plus" || tab === "rewards" || tab === "market") && <nav className="mobile-settings-tabs" aria-label="Настройки аккаунта"><button className={tab==='profile'?'active':''} onClick={()=>setTab('profile')}>Профиль</button><button className={tab==='rewards'?'active':''} onClick={()=>setTab('rewards')}>БАТОНчики</button><button className={tab==='plus'?'active':''} onClick={()=>setTab('plus')}>TELEJKA+</button><button className={tab==='market'?'active':''} onClick={()=>setTab('market')}>Рынок</button></nav>}
         {tab === "profile" && (
           <>
             <Profile user={user} onSaved={setUser} />
           </>
         )}
-        {tab === "rewards" && <Rewards onUpdated={setUser} />}
+        {tab === "rewards" && <Rewards onUpdated={setUser} />}{tab === "market" && <Marketplace user={user} onUpdated={setUser}/>}
       </main>
       {(tab !== "chats" || rightOpen) && (
         <aside className={`rightbar ${rightOpen?"mobile-right-open":""}`}><button className="mobile-right-close" onClick={()=>setRightOpen(false)}>Закрыть ×</button>
@@ -724,7 +727,7 @@ function PostCard({
                   </button>
                   <p>{c.body}</p>
                   <MediaList items={c.attachments} />
-                  <small>{time(c.created_at)}</small>
+                  <small>{time(c.created_at)}{c.edited_at?" · отредактировано":""}</small>{c.author.id===user.id&&<div className="content-tools"><EditContent maxLength={1000} body={c.body} onSave={async body=>{await api(`posts/${post.id}/comments/${c.id}`,"PATCH",{body});await load()}}/><button type="button" onClick={async()=>{if(!confirm("Удалить комментарий?"))return;try{await api(`posts/${post.id}/comments/${c.id}`,"DELETE");await load();onChange()}catch(e){setError(errorText(e))}}}>Удалить</button></div>}
                 </div>
               </div>
             ))}

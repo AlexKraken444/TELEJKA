@@ -1,10 +1,11 @@
 "use client";
+import {PrizeReel} from './economy';
 import {ProfileMusic} from "./profile-music";
 import { useEffect, useRef, useState } from "react";
 import type { User, Reaction, Chat } from "@/lib/types";
 import { api, errorText, UserName } from "./shared";
 type Wallet = {
-  balance: number;
+  balance: number|string;
   unlimited?: boolean;
   streak: number;
   plus_active: boolean;
@@ -19,9 +20,11 @@ type Wallet = {
 };
 export function DailyVisit({ userId }: { userId: string }) {
   useEffect(() => {
+    let pending=false,claimedDay='';
     const visit = () => {
-      if (!document.hidden)
-        api<Wallet>("rewards/visit", "POST", {}).catch(() => {});
+      const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+      if(document.hidden||pending||claimedDay===day)return;
+      pending=true;api<Wallet>("rewards/visit","POST",{}).then(()=>{claimedDay=day}).catch(()=>{}).finally(()=>{pending=false});
     };
     visit();
     const timer = setInterval(visit, 60000);
@@ -49,10 +52,12 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
           if (active) setError(errorText(e));
         });
     load();
-    const t = setInterval(load, 15000);
+    window.addEventListener("economy-changed",load);
+    const t = setInterval(()=>{if(!document.hidden)load()}, 60000);
     return () => {
       active = false;
       clearInterval(t);
+      window.removeEventListener("economy-changed",load);
     };
   }, []);
   async function action(buy: boolean) {
@@ -95,7 +100,7 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
             </div>
           </div>
           <p className="muted">
-            За вход каждый день: 15, 30, 45… После пропуска — снова 15. Новый
+            За вход каждый день: 15, 30, 60, 120… После пропуска — снова 15. Новый
             день начинается в 00:00 по Москве.
           </p>
           <div className="reward-card">
@@ -131,6 +136,7 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
                 : "Получить 30 БАТОНчиков"}
             </button>
           </div>
+          <PrizeReel onUpdated={onUpdated}/><button className="secondary" onClick={()=>window.dispatchEvent(new CustomEvent("studio-tab",{detail:"market"}))}>Рынок и мой инвентарь →</button>
           <div className="reward-card plus-card">
             <h2>TELEJKA+</h2>
             <p>100 БАТОНчиков на месяц</p>
@@ -144,15 +150,15 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
             {wallet.plus_active && (
               <p>
                 Действует до{" "}
-                {new Date(wallet.plus_until!).toLocaleDateString("ru")}
+                {wallet.plus_until?.startsWith("9999")?"∞":new Date(wallet.plus_until!).toLocaleDateString("ru")}
               </p>
             )}
             <button
               className="primary"
-              disabled={busy || (!wallet.unlimited && wallet.balance < 100)}
+              disabled={busy || Boolean(wallet.plus_until?.startsWith("9999")) || (!wallet.unlimited && Number(wallet.balance) < 100)}
               onClick={() => action(true)}
             >
-              {wallet.plus_active ? "Продлить на месяц" : "Купить TELEJKA+"}
+              {wallet.plus_until?.startsWith("9999")?"Бессрочная подписка":wallet.plus_active ? "Продлить на месяц" : "Купить TELEJKA+"}
             </button>
             <p className="muted small">
               Без автоматического списания. Настройки подписки — в профиле.

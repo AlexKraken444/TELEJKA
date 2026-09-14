@@ -129,7 +129,7 @@ export function UserName({ user }: { user: User }) {
           <i className="centered-plus" aria-hidden="true"/>
         </span>
       )}
-      <VerifiedBadge verified={user.verified} />
+      <VerifiedBadge verified={user.verified} />{user.medals?.map(m=><span className="medal-badge" key={m} title={{bronze:"Бронзовая медаль",silver:"Серебряная медаль",gold:"Золотая медаль"}[m]}>{{bronze:"🥉",silver:"🥈",gold:"🥇"}[m]}</span>)}
     </span>
   );
 }

@@ -1,3 +1,4 @@
+import {economyApi} from './economy-api';
 import { VERIFICATION_OWNER_ID } from "./verification";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -42,11 +43,12 @@ export async function canSendChat(chatId: string, userId: string) {
 async function walletStatus(userId: string) {
   const sql = db();
   const [w] =
-    await sql`SELECT w.balance::float8 balance,w.streak,w.last_visit::text last_visit,u.plus_until,COALESCE(u.plus_until>now(),false) plus_active,(now() AT TIME ZONE 'Europe/Moscow')::date::text today FROM wallets w JOIN users u ON u.id=w.user_id WHERE w.user_id=${userId}`;
+    await sql`SELECT w.balance::text balance,w.streak,w.last_visit::text last_visit,u.plus_until,COALESCE(u.plus_until>now(),false) plus_active,(now() AT TIME ZONE 'Europe/Moscow')::date::text today FROM wallets w JOIN users u ON u.id=w.user_id WHERE w.user_id=${userId}`;
   const [quest] =
     await sql`SELECT kind,target,progress,claimed FROM daily_quests WHERE user_id=${userId} AND day=(now() AT TIME ZONE 'Europe/Moscow')::date`;
   return {
     ...w,
+    balance: Number(w.balance)<=Number.MAX_SAFE_INTEGER?Number(w.balance):w.balance,
     unlimited: userId === VERIFICATION_OWNER_ID,
     quest,
     quest_reward: 30,
@@ -59,6 +61,7 @@ export async function communityApi(
   input: Record<string, unknown>,
   userId: string,
 ): Promise<Response | undefined> {
+  const economy=await economyApi(req,path,input,userId);if(economy)return economy;
   const sql = db(),
     route = path.join("/");
   if (
@@ -117,10 +120,10 @@ export async function communityApi(
       await tx`SELECT telejka_quest(${userId}::uuid)`;
       if (w.claimed) return 0;
       const streak = w.consecutive ? w.streak + 1 : 1,
-        amount = streak * 15;
+        amount = (await tx`SELECT trunc(15 * power(2::numeric,${streak - 1}))::text amount`)[0].amount;
       await tx`INSERT INTO baton_ledger(user_id,ref,amount) VALUES(${userId},'visit:'||(now() AT TIME ZONE 'Europe/Moscow')::date::text,${amount})`;
       await tx`UPDATE wallets SET balance=balance+${amount},streak=${streak},last_visit=(now() AT TIME ZONE 'Europe/Moscow')::date WHERE user_id=${userId}`;
-      return amount;
+      return Number(amount)<=Number.MAX_SAFE_INTEGER?Number(amount):amount;
     });
     return json({ ...(await walletStatus(userId)), granted });
   }
@@ -148,6 +151,8 @@ export async function communityApi(
       const [old] =
         await tx`SELECT 1 FROM baton_ledger WHERE user_id=${userId} AND ref=${"plus:" + requestId}`;
       if (old) return;
+      const [subscription]=await tx`SELECT plus_until>='9999-01-01'::timestamptz permanent FROM users WHERE id=${userId} FOR UPDATE`;
+      if(subscription.permanent)throw new FeatureError(400,"У тебя уже бессрочная TELEJKA+.");
       const unlimited = userId === VERIFICATION_OWNER_ID;
       if (!unlimited && Number(wallet.balance) < 100)
         throw new FeatureError(400, "Нужно 100 БАТОНчиков.");

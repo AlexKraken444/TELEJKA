@@ -648,6 +648,19 @@ test(
       0,
     );
 
+    // Comment ownership and edited marker, with no effect on later fixture counts.
+    const existingComment=(await request('posts/'+post.body.id+'/comments','GET',undefined,alice.cookie)).body[0];
+    const commentOwner=accounts.find(a=>a.id===existingComment.author.id)!;
+    const otherCommentUser=accounts.find(a=>a.id!==existingComment.author.id)!;
+    assert.equal((await request('posts/'+post.body.id+'/comments/'+existingComment.id,'PATCH',{body:'Изменённый комментарий'},otherCommentUser.cookie)).status,404);
+    assert.equal((await request('posts/'+post.body.id+'/comments/'+existingComment.id,'PATCH',{body:'Изменённый комментарий'},commentOwner.cookie)).status,200);
+    assert.ok((await request('posts/'+post.body.id+'/comments','GET',undefined,alice.cookie)).body[0].edited_at);
+    await request('posts/'+post.body.id+'/comments','POST',{body:'Удаляемый комментарий'},alice.cookie);
+    const commentsNow=(await request('posts/'+post.body.id+'/comments','GET',undefined,alice.cookie)).body;
+    const removable=commentsNow.find((c:any)=>c.body==='Удаляемый комментарий');
+    assert.equal((await request('posts/'+post.body.id+'/comments/'+removable.id,'DELETE',undefined,bob.cookie)).status,404);
+    assert.equal((await request('posts/'+post.body.id+'/comments/'+removable.id,'DELETE',undefined,alice.cookie)).status,200);
+
     // Economy grants are serialized, idempotent and based on Moscow dates.
     const visits = await Promise.all([
       request("rewards/visit", "POST", {}, alice.cookie),
@@ -1372,6 +1385,49 @@ test(
     assert.equal((await db.query('SELECT * FROM push_subscriptions')).rows.length,1);
     await request('push/subscription','DELETE',undefined,bob.cookie);
     assert.equal((await db.query('SELECT * FROM push_subscriptions')).rows.length,1);
+    // Real transactions: doubling, exact large balances, spin replay, inventory and competing buyers.
+    await db.query('DELETE FROM rate_limits');
+    await db.query("UPDATE wallets SET balance=45,streak=2,last_visit=(now() AT TIME ZONE 'Europe/Moscow')::date-1 WHERE user_id=$1",[alice.id]);
+    await db.query("DELETE FROM baton_ledger WHERE user_id=$1 AND ref LIKE 'visit:%'",[alice.id]);
+    const third=await request('rewards/visit','POST',{},alice.cookie);assert.equal(third.body.granted,60);assert.equal(third.body.balance,105);
+    await db.query("UPDATE wallets SET streak=60,last_visit=(now() AT TIME ZONE 'Europe/Moscow')::date-1 WHERE user_id=$1",[alice.id]);
+    await db.query("DELETE FROM baton_ledger WHERE user_id=$1 AND ref LIKE 'visit:%'",[alice.id]);
+    const large=await request('rewards/visit','POST',{},alice.cookie);assert.equal(BigInt(large.body.granted),15n*(2n**60n));
+    await db.query('UPDATE wallets SET balance=2000 WHERE user_id=$1',[alice.id]);
+    const spinId=crypto.randomUUID();
+    for(const stake of [9,1001,10.5])assert.equal((await request('rewards/spin','POST',{stake,requestId:crypto.randomUUID()},alice.cookie)).status,400);
+    const spins=await Promise.all([request('rewards/spin','POST',{stake:100,requestId:spinId},alice.cookie),request('rewards/spin','POST',{stake:100,requestId:spinId},alice.cookie)]);
+    assert.equal(spins[0].status,200,JSON.stringify(spins[0].body));assert.deepEqual(spins[0].body,spins[1].body);
+    assert.equal((await db.query('SELECT * FROM reward_spins WHERE user_id=$1',[alice.id])).rows.length,1);
+    const bonus=spins[0].body.prize==='baton10'?10:spins[0].body.prize==='baton30'?30:0;
+    assert.equal(Number((await request('economy','GET',undefined,alice.cookie)).body.balance),1900+bonus);
+    const medal=(await db.query<{id:string}>("INSERT INTO reward_items(owner_id,kind) VALUES($1,'gold') RETURNING id",[alice.id])).rows[0];
+    assert.ok((await request('me','GET',undefined,alice.cookie)).body.medals.includes('gold'));
+    const listingData={itemId:medal.id,price:150,requestId:crypto.randomUUID()};
+    assert.equal((await request('market/list','POST',listingData,bob.cookie)).status,404);
+    const listing=await request('market/list','POST',listingData,alice.cookie);assert.equal(listing.status,200,JSON.stringify(listing.body));
+    assert.equal((await request('market/list','POST',listingData,alice.cookie)).body.id,listing.body.id);
+    assert.equal((await request('market/'+listing.body.id+'/buy','POST',{},alice.cookie)).status,400);
+    for(const a of [bob,vera])await db.query('INSERT INTO wallets(user_id,balance) VALUES($1,1000) ON CONFLICT(user_id) DO UPDATE SET balance=1000',[a.id]);
+    const buyers=await Promise.all([request('market/'+listing.body.id+'/buy','POST',{},bob.cookie),request('market/'+listing.body.id+'/buy','POST',{},vera.cookie)]);
+    assert.deepEqual(buyers.map(b=>b.status).sort(),[200,409]);
+    const winner=buyers[0].status===200?bob:vera;
+    assert.equal((await request('market/'+listing.body.id+'/buy','POST',{},winner.cookie)).status,200);
+    assert.equal(Number((await request('economy','GET',undefined,winner.cookie)).body.balance),850);
+    assert.ok((await request('me','GET',undefined,winner.cookie)).body.medals.includes('gold'));
+    assert.ok(!(await request('me','GET',undefined,alice.cookie)).body.medals.includes('gold'));
+    const voucher=(await db.query<{id:string}>("INSERT INTO reward_items(owner_id,kind) VALUES($1,'forever') RETURNING id",[alice.id])).rows[0];
+    const voucherListing=await request('market/list','POST',{itemId:voucher.id,price:200,requestId:crypto.randomUUID()},alice.cookie);
+    assert.equal((await request('inventory/'+voucher.id+'/activate','POST',{},alice.cookie)).status,409);
+    assert.equal((await request('market/'+voucherListing.body.id+'/cancel','POST',{},bob.cookie)).status,403);
+    assert.equal((await request('market/'+voucherListing.body.id+'/cancel','POST',{},alice.cookie)).status,200);
+    assert.equal((await request('inventory/'+voucher.id+'/activate','POST',{},alice.cookie)).status,200);
+    assert.match((await request('me','GET',undefined,alice.cookie)).body.plus_until,/^9999/);
+    assert.equal((await request('inventory/'+voucher.id+'/activate','POST',{},alice.cookie)).status,200);
+    const exportData={activeSubscription:true,price:300,requestId:crypto.randomUUID()};
+    const exported=await request('market/list','POST',exportData,alice.cookie);assert.equal(exported.status,200,JSON.stringify(exported.body));
+    assert.equal((await request('me','GET',undefined,alice.cookie)).body.plus_active,false);
+    assert.equal((await request('market/list','POST',exportData,alice.cookie)).body.id,exported.body.id);
     await request("auth/logout", "POST", {}, alice.cookie);
     assert.equal((await db.query('SELECT * FROM push_subscriptions')).rows.length,0);
     assert.equal(

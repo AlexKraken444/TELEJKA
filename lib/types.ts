@@ -1,5 +1,6 @@
 export type Reaction = { emoji: string; count: number; mine: boolean };
 export type User = {
+  medals?: string[];
   follower_count?: number;
   plus_active?: boolean;
   plus_until?: string;
@@ -30,6 +31,7 @@ export type Post = {
   liked: boolean;
 };
 export type Comment = {
+  edited_at?: string|null;
   attachments?: import("@/components/media").Attachment[];
   id: string;
   body: string;

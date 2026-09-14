@@ -6,6 +6,14 @@ import {FeatureError} from './api-error';
 import {envelopeSchema} from './feature-api';
 export async function editShareApi(req:NextRequest,path:string[],input:Record<string,unknown>,userId:string){
  const sql=db(),reply=(value:unknown,status=200)=>NextResponse.json(value,{status,headers:{'Cache-Control':'no-store'}});
+ if(path[0]==='posts'&&path[2]==='comments'&&path.length===4&&['PATCH','DELETE'].includes(req.method)){
+  const postId=z.uuid().parse(path[1]),id=z.uuid().parse(path[3]);
+  const [comment]=await sql`SELECT id,attachments FROM comments WHERE id=${id} AND post_id=${postId} AND user_id=${userId}`;
+  if(!comment)throw new FeatureError(404,'Комментарий не найден.');
+  if(req.method==='PATCH'){const body=z.string().trim().max(1000).parse(input.body);if(!body&&!comment.attachments?.length)throw new FeatureError(400,'Напишите текст.');await sql`UPDATE comments SET body=${body},edited_at=now() WHERE id=${id} AND user_id=${userId}`;}
+  else await sql`DELETE FROM comments WHERE id=${id} AND user_id=${userId}`;
+  return reply({ok:true});
+ }
  if(path[0]==='posts'&&path[1]&&(path.length===2||path[2]==='repost')){
   const id=z.uuid().parse(path[1]);
   if(req.method==='GET'&&path.length===2){await canReadPost(id,userId);const [post]=await sql`SELECT p.*,(SELECT id FROM polls WHERE post_id=p.id) poll_id,telejka_user(p.user_id,${userId}::uuid) author FROM posts p WHERE p.id=${id}`;return reply(post);}

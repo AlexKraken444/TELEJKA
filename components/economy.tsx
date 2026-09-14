@@ -1,0 +1,42 @@
+"use client";
+import {createPortal} from 'react-dom';
+import {useEffect,useRef,useState} from 'react';
+import {PRIZES,prizeWeights,itemLabel,medalIcons} from '@/lib/prizes';
+import type {User} from '@/lib/types';
+import {api,errorText,UserName} from './shared';
+type Item={id:string;kind:string;seconds?:number;listing_id?:string};
+type Economy={items:Item[];balance:string;unlimited:boolean;plus_until?:string};
+type Listing={id:string;kind:string;seconds?:number;price:string;seller_id:string;seller:User};
+export function PrizeReel({onUpdated}:{onUpdated:(u:User)=>void}){
+ const [stake,setStake]=useState(10),[busy,setBusy]=useState(false),[result,setResult]=useState(''),[error,setError]=useState(''),[position,setPosition]=useState(0);
+ const request=useRef<{id:string;stake:number}|null>(null),inFlight=useRef(false);
+ const weights=prizeWeights(stake);
+ async function spin(){if(inFlight.current)return;inFlight.current=true;setBusy(true);setError('');setResult('');if(!request.current)request.current={id:crypto.randomUUID(),stake};
+  try{const r=await api<{prize:string}>('rewards/spin','POST',{requestId:request.current.id,stake:request.current.stake});request.current=null;
+   // The server has already committed the prize; animation never decides the outcome.
+   const index=PRIZES.findIndex(p=>p.kind===r.prize);setPosition(0);
+   await new Promise(resolve=>setTimeout(resolve,30));setPosition(27+index);
+   await new Promise(resolve=>setTimeout(resolve,2600));setResult(itemLabel(r.prize));window.dispatchEvent(new Event('economy-changed'));onUpdated(await api<User>('me'));
+  }catch(e){if(errorText(e).includes('Недостаточно'))request.current=null;setError(errorText(e))}finally{inFlight.current=false;setBusy(false)}
+ }
+ return <section className="reward-card prize-game"><h2>Лента призов</h2><p className="muted">БАТОНчики — игровая валюта. Большая ставка повышает шанс редких призов, но не гарантирует выигрыш дороже ставки.</p>
+ <div className="prize-window" aria-hidden="true"><span className="prize-pointer">▼</span><div className="prize-track" style={{transform:`translateX(calc(50% - 70px - ${position*140}px))`,transition:position?'transform 2.5s cubic-bezier(.12,.7,.15,1)':'none'}}>{Array.from({length:5},(_,n)=>PRIZES.map(p=><div className={`prize-cell prize-${p.kind}`} key={n+p.kind}><b>{p.icon}</b><span>{p.label}</span></div>))}</div></div>
+ <label className="stake-field">Ставка · от 10 до 1000<input type="number" min={10} max={1000} step={1} value={stake} disabled={busy||Boolean(request.current)} onChange={e=>setStake(Number(e.target.value))}/></label><input aria-label="Размер ставки" type="range" min={10} max={1000} value={stake} disabled={busy||Boolean(request.current)} onChange={e=>setStake(Number(e.target.value))}/>
+ <button className="primary" disabled={busy||!Number.isInteger(stake)||stake<10||stake>1000} onClick={spin}>{busy?'Прокручиваем…':request.current?'Проверить результат предыдущей попытки':`Крутить за ${stake} БАТОНчиков`}</button>
+ {result&&<p className="prize-result" role="status">Твой приз: <strong>{result}</strong>{!result.includes('БАТОНчиков')&&' · уже в инвентаре'}</p>}{error&&<p className="error" role="alert">{error}</p>}
+ <details><summary>Призы и шансы при ставке {stake}</summary><ul className="prize-odds">{PRIZES.map((p,i)=><li key={p.kind}><span>{p.icon} {p.label}<small>{p.rarity}</small></span><b>{(weights[i]/1000).toLocaleString('ru')}%</b></li>)}</ul></details></section>
+}
+export function Marketplace({user,onUpdated}:{user:User;onUpdated:(u:User)=>void}){
+ const [state,setState]=useState<Economy|null>(null),[listings,setListings]=useState<Listing[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),[section,setSection]=useState<'market'|'inventory'>('market'),[selected,setSelected]=useState<Item|'active'|null>(null),[price,setPrice]=useState(100),[more,setMore]=useState(false);
+ const listingRequest=useRef<string|null>(null),locked=useRef(false);
+ async function load(){const [s,l]=await Promise.all([api<Economy>('economy'),api<Listing[]>('market')]);setState(s);setListings(l);setMore(l.length===40)}
+ useEffect(()=>{void load().catch(e=>setError(errorText(e)));const refresh=()=>void load().catch(()=>{});window.addEventListener('economy-changed',refresh);return()=>window.removeEventListener('economy-changed',refresh)},[]);
+ async function action(fn:()=>Promise<unknown>){if(locked.current)return;locked.current=true;setBusy(true);setError('');try{await fn();await load();onUpdated(await api<User>('me'))}catch(e){setError(errorText(e))}finally{locked.current=false;setBusy(false)}}
+ return <section className="section-pad economy-market"><header><h1>Рынок</h1><p>{state?.unlimited?'∞':state?.balance||'0'} БАТОНчиков</p></header><div className="content-tools"><button className={section==='market'?'active':''} onClick={()=>setSection('market')}>Объявления</button><button className={section==='inventory'?'active':''} onClick={()=>setSection('inventory')}>Мой инвентарь</button></div>{error&&<p className="error" role="alert">{error}</p>}
+ {section==='inventory'?<><p className="muted">Подписку можно активировать или продать. Медали отображаются возле имени, пока принадлежат тебе.</p>
+ {state?.plus_until&&new Date(state.plus_until)>new Date()&&<article className="reward-card"><h3>Твоя действующая TELEJKA+</h3><p>При выставлении оставшийся срок снимается с аккаунта и сохраняется в инвентаре. После отмены продажи его можно активировать снова.</p><button disabled={busy} onClick={()=>{listingRequest.current=null;setSelected('active')}}>Продать оставшийся срок</button></article>}
+ {!state?.items.length&&<p>Предметов пока нет. Призы из ленты появятся здесь.</p>}
+ <div className="market-grid">{state?.items.map(item=><article className="reward-card market-item" key={item.id}><span className="item-icon">{medalIcons[item.kind]||'✦'}</span><h3>{itemLabel(item.kind,item.seconds)}</h3><div className="content-tools">{item.listing_id?<button disabled={busy} onClick={()=>action(()=>api(`market/${item.listing_id}/cancel`,'POST',{}))}>Снять с продажи</button>:<><button disabled={busy} onClick={()=>{listingRequest.current=null;setSelected(item)}}>Продать</button>{!medalIcons[item.kind]&&<button disabled={busy} onClick={()=>action(()=>api(`inventory/${item.id}/activate`,'POST',{}))}>Активировать</button>}</>}</div></article>)}</div>
+ {selected&&createPortal(<div className="modal-backdrop"><form className="modal reward-card" role="dialog" aria-modal="true" aria-label="Выставить на рынок" onSubmit={e=>{e.preventDefault();if(!listingRequest.current)listingRequest.current=crypto.randomUUID();void action(async()=>{await api('market/list','POST',{price,requestId:listingRequest.current,...(selected==='active'?{activeSubscription:true}:{itemId:selected.id})});listingRequest.current=null;setSelected(null)})}}><h3>Выставить: {selected==='active'?'действующая подписка':itemLabel(selected.kind,selected.seconds)}</h3><label>Цена в БАТОНчиках<input autoFocus type="number" min={1} max={1000000000000} step={1} value={price} onChange={e=>setPrice(Number(e.target.value))} required disabled={busy}/></label><div className="content-tools"><button className="primary" disabled={busy}>Выставить на рынок</button><button type="button" disabled={busy} onClick={()=>setSelected(null)}>Отмена</button></div></form></div>,document.body)}</>:<><p className="muted">Предмет переходит покупателю, БАТОНчики — продавцу. Подписки после покупки нужно активировать в инвентаре.</p><div className="market-grid">{listings.map(l=><article className="reward-card market-item" key={l.id}><span className="item-icon">{medalIcons[l.kind]||'✦'}</span><h3>{itemLabel(l.kind,l.seconds)}</h3><p><UserName user={l.seller}/></p><strong>{l.price} БАТОНчиков</strong><button className="primary" disabled={busy} onClick={()=>{if(l.seller_id===user.id)void action(()=>api(`market/${l.id}/cancel`,'POST',{}));else if(confirm(`Купить «${itemLabel(l.kind,l.seconds)}» за ${l.price} БАТОНчиков?`))void action(()=>api(`market/${l.id}/buy`,'POST',{}))}}>{l.seller_id===user.id?'Снять с продажи':'Купить'}</button></article>)}</div>{!listings.length&&<p>Пока нет объявлений. Первый предмет можно выставить из инвентаря.</p>}{more&&<button disabled={busy} onClick={async()=>{setBusy(true);try{const page=await api<Listing[]>('market?offset='+listings.length);setListings(v=>[...v,...page]);setMore(page.length===40)}catch(e){setError(errorText(e))}finally{setBusy(false)}}}>Ещё объявления</button>}</>}
+ </section>
+}
