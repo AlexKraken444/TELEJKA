@@ -20,6 +20,9 @@ function postgresUrl(value: string | undefined) {
 // must not hide the actual connection supplied by the integration.
 export function getDatabaseUrl(env: Environment = process.env) {
   for (const name of [
+    "TELEJKA_URL",
+    "TELEJKA_DATABASE_URL",
+    "TELEJKA_POSTGRES_URL",
     "DATABASE_URL",
     "POSTGRES_URL",
     "POSTGRES_URL_NON_POOLING",

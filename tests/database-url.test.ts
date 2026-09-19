@@ -32,3 +32,5 @@ test("explicit valid database URL takes precedence", () => {
     url,
   );
 });
+
+test('dedicated TELEJKA integration wins over an exhausted shared database',()=>{assert.equal(getDatabaseUrl({TELEJKA_URL:'postgresql://user:pass@new.example/app',DATABASE_URL:'postgresql://user:pass@old.example/news'}),'postgresql://user:pass@new.example/app')});
