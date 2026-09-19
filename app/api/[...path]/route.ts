@@ -1,3 +1,6 @@
+import {noteDatabaseFailure} from '@/lib/db';
+import {chatListRevision,messageRevision} from '@/lib/sync-revision';
+import {resourceFailure} from '@/lib/resource-error';
 import { communityApi, canContact, canReadPost } from "@/lib/community-api";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -221,7 +224,7 @@ async function handle(
         can_manage_verification: canManageVerification(user.id),
       });
     }
-    const user = await currentUser();
+    const user = await currentUser(route === "me");
     if (!user) throw new ApiError(401, "Войдите в аккаунт.");
     await rateLimit(
       `${path[0] === "uploads" ? "upload" : writing ? "write" : "read"}:${user.id}`,
@@ -397,9 +400,12 @@ async function handle(
       }
     }
     if (route === "chats" && req.method === "GET") {
-      return json(
-        await sql`SELECT c.id, c.title, c.is_group, c.created_by, COALESCE(last.created_at,c.created_at) AS updated_at, last.body AS last_body, (SELECT json_agg(telejka_user(u.id,${user.id}::uuid)) FROM members cm JOIN users u ON u.id = cm.user_id WHERE cm.conversation_id = c.id) AS participants FROM conversations c JOIN members m ON m.conversation_id = c.id AND m.user_id = ${user.id} LEFT JOIN LATERAL (SELECT body, created_at FROM messages WHERE conversation_id = c.id AND (m.cleared_at IS NULL OR created_at>m.cleared_at) ORDER BY created_at DESC, id DESC LIMIT 1) last ON true WHERE (m.hidden_at IS NULL OR last.created_at>m.hidden_at) ORDER BY updated_at DESC`,
+      const revision=req.nextUrl.searchParams.has("sync")?await chatListRevision(user.id):null;
+      if(revision&&revision===req.nextUrl.searchParams.get("revision"))return json({revision,unchanged:true});
+      const data = (
+        await sql`SELECT c.id, c.title, c.is_group, c.created_by, COALESCE(last.created_at,c.created_at) AS updated_at, last.body AS last_body, (SELECT json_agg(telejka_user(u.id,${user.id}::uuid)) FROM members cm JOIN users u ON u.id = cm.user_id WHERE cm.conversation_id = c.id) AS participants FROM conversations c JOIN members m ON m.conversation_id = c.id AND m.user_id = ${user.id} LEFT JOIN LATERAL (SELECT body, created_at FROM messages WHERE conversation_id = c.id AND (m.cleared_at IS NULL OR created_at>m.cleared_at) ORDER BY created_at DESC, id DESC LIMIT 1) last ON true WHERE (m.hidden_at IS NULL OR last.created_at>m.hidden_at) ORDER BY updated_at DESC`
       );
+      return json(revision?{revision,data}:data);
     }
     if (route === "chats" && req.method === "POST") {
       const data = z
@@ -435,13 +441,15 @@ async function handle(
         await sql`SELECT cleared_at FROM members WHERE conversation_id = ${id} AND user_id = ${user.id}`;
       if (!member) throw new ApiError(404, "Чат не найден.");
       if (req.method === "GET") {
+        const revision=req.nextUrl.searchParams.has("sync")?await messageRevision(id,user.id):null;
+        if(revision&&revision===req.nextUrl.searchParams.get("revision"))return json({revision,unchanged:true});
         const before = req.nextUrl.searchParams.get("before");
         const cutoff = before
           ? z.iso.datetime({ offset: true }).parse(before)
           : new Date(Date.now() + 60000).toISOString();
         const rows =
           await sql`SELECT telejka_message_reactions(m.id,${user.id}::uuid) AS reactions,m.id, (SELECT id FROM polls WHERE message_id=m.id) poll_id, m.user_id, m.body, m.envelope, m.created_at, m.edited_at, telejka_user(u.id,${user.id}::uuid) AS author FROM messages m JOIN users u ON u.id = m.user_id WHERE m.conversation_id = ${id} AND (${member.cleared_at}::timestamptz IS NULL OR m.created_at>${member.cleared_at}::timestamptz) AND m.created_at < ${cutoff} ORDER BY m.created_at DESC, m.id DESC LIMIT 100`;
-        return json(rows.reverse());
+        return json(revision?{revision,data:rows.reverse()}:rows.reverse());
       }
       if (req.method === "POST") {
         throw new ApiError(400, "Требуется зашифрованное сообщение.");
@@ -462,10 +470,10 @@ async function handle(
       "TELEJKA API error",
       (error as { code?: string }).code ?? "unknown",
     );
-    return json(
-      { error: "Сервер временно недоступен. Попробуйте ещё раз.", resource: String((error as Error).message).toLowerCase().split(/[^a-z]+/).filter(w=>["compute","storage","disk","size","transfer","egress","bandwidth","quota","limit","limits","exceeded","connections","memory","project","endpoint","disabled","usage","capacity","data","monthly","plan","upgrade","running","time"].includes(w)).slice(0,24).join(" "), reason: /compute.*(quota|limit)|(quota|limit).*compute/i.test(String((error as Error).message))?'COMPUTE_QUOTA':/storage|disk.*(full|quota)|size.*limit/i.test(String((error as Error).message))?'STORAGE_LIMIT':/suspend|disabled/i.test(String((error as Error).message))?'DATABASE_SUSPENDED':/too many|connection.*limit/i.test(String((error as Error).message))?'CONNECTION_LIMIT':'UNKNOWN', diagnostic: /^[A-Z0-9_]{2,32}$/.test(String((error as {code?:string}).code||"")) ? (error as {code?:string}).code : "UNAVAILABLE" },
-      503,
-    );
+    noteDatabaseFailure(error);
+    const failure=resourceFailure(error);
+    return NextResponse.json({error:failure.error,reason:failure.reason},{status:503,headers:{'Cache-Control':'no-store','Retry-After':String(failure.retryAfter)}});
+
   }
 }
 export { handle as GET, handle as POST, handle as PATCH, handle as DELETE };

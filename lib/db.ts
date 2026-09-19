@@ -1,3 +1,4 @@
+import {resourceFailure} from './resource-error';
 import postgres from "postgres";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -5,8 +6,11 @@ import { getDatabaseUrl } from "./database-url";
 const globalDb = globalThis as unknown as {
   telejkaSql?: ReturnType<typeof postgres>;
   telejkaSchema?: Promise<void>;
+  telejkaPause?: {until:number;error:unknown};
 };
+export function noteDatabaseFailure(error:unknown){if(resourceFailure(error).quota)globalDb.telejkaPause={until:Date.now()+300000,error};}
 export function db() {
+  if(globalDb.telejkaPause&&globalDb.telejkaPause.until>Date.now())throw globalDb.telejkaPause.error;
   const url = databaseUrl();
   if (!url) throw new Error("DATABASE_NOT_CONFIGURED");
   return (globalDb.telejkaSql ??= postgres(url, {
@@ -69,6 +73,7 @@ export function ensureDatabase() {
         const [presenceDone]=await tx`SELECT 1 FROM telejka_migrations WHERE name='presence-v1'`;if(!presenceDone){await tx.unsafe(await readFile(join(process.cwd(),'db','presence.sql'),'utf8'));await tx`INSERT INTO telejka_migrations(name) VALUES('presence-v1')`;}
       });
     })().catch((error) => {
+      noteDatabaseFailure(error);
       globalDb.telejkaSchema = undefined;
       throw error;
     });

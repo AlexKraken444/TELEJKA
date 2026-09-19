@@ -340,10 +340,23 @@ test(
     assert.equal((await request('chats/'+direct.body.id+'/messages/'+editable.body.id,'PATCH',{envelope:changedEnvelope},bob.cookie)).status,404);
     assert.equal((await request('chats/'+direct.body.id+'/messages/'+editable.body.id,'PATCH',{envelope:changedEnvelope},alice.cookie)).status,200);
     const changed=(await request('chats/'+direct.body.id+'/messages','GET',undefined,bob.cookie)).body.find((m:any)=>m.id===editable.body.id);assert.ok(changed.edited_at);assert.equal((await decryptMessage<any>(direct.body.id,changed.envelope,identities[1])).body,'После правки');
-    await db.query('DELETE FROM messages WHERE id=$1',[editable.body.id]);
+
     // Calls: encrypted signaling, access controls, busy state, timeout and teardown.
     const callId=crypto.randomUUID();
     const callOffer=await encryptMessage(callId,{callId,description:{type:'offer',sdp:'private-sdp'}},devices.slice(0,2));
+    // Idle synchronization omits bodies and avatars; edits invalidate the fingerprint.
+    const snapshot=await request('chats/'+direct.body.id+'/messages?sync=1','GET',undefined,alice.cookie);
+    assert.equal(snapshot.status,200,JSON.stringify(snapshot.body));assert.ok(Array.isArray(snapshot.body.data));
+    const unchanged=await request('chats/'+direct.body.id+'/messages?sync=1&revision='+snapshot.body.revision,'GET',undefined,alice.cookie);
+    assert.deepEqual(unchanged.body,{revision:snapshot.body.revision,unchanged:true});assert.ok(JSON.stringify(unchanged.body).length<100);
+    assert.equal((await request('chats/'+direct.body.id+'/messages?sync=1&revision='+snapshot.body.revision,'GET',undefined,outsider.cookie)).status,404);
+    assert.equal((await request('chats/'+direct.body.id+'/messages/'+editable.body.id,'PATCH',{envelope:changedEnvelope},alice.cookie)).status,200);
+    const modified=await request('chats/'+direct.body.id+'/messages?sync=1&revision='+snapshot.body.revision,'GET',undefined,alice.cookie);
+    assert.notEqual(modified.body.revision,snapshot.body.revision);assert.ok(Array.isArray(modified.body.data));
+    const chatSnapshot=await request('chats?sync=1','GET',undefined,alice.cookie);
+    assert.equal(chatSnapshot.status,200,JSON.stringify(chatSnapshot.body));assert.ok(Array.isArray(chatSnapshot.body.data));
+    assert.equal((await request('chats?sync=1&revision='+chatSnapshot.body.revision,'GET',undefined,alice.cookie)).body.unchanged,true);
+    await db.query('DELETE FROM messages WHERE id=$1',[editable.body.id]);
     const callData={id:callId,chatId:direct.body.id,deviceId:devices[0].id,offer:callOffer};
     assert.equal((await request('calls','POST',callData,alice.cookie)).status,201);
     assert.equal((await request('calls','POST',{...callData,id:crypto.randomUUID()},alice.cookie)).status,409);

@@ -1,4 +1,5 @@
 "use client";
+import {revisionPoll} from '@/lib/poll';
 import {PostTools,RepostCard,EditContent} from "./content-tools";
 import {MobileNavigation} from "./mobile-navigation";
 import {OnlineContext,useOnline,OnlineStatus,ChatActivity} from "./presence";
@@ -65,6 +66,7 @@ import { EncryptedMessage } from "./encrypted-message";
 import { encryptMessage, type PublicDevice } from "@/lib/crypto-chat";
 type Tab = "market" | "plus" | "rewards" | "feed" | "chats" | "people" | "profile" | "account";
 export function SocialApp({ initialUser }: { initialUser: User }) {
+ const [serviceError,setServiceError]=useState('');useEffect(()=>{const update=(e:Event)=>setServiceError((e as CustomEvent<string>).detail);window.addEventListener('telejka-service-status',update);return()=>window.removeEventListener('telejka-service-status',update)},[]);
  const online=useOnline();const [rightOpen,setRightOpen]=useState(false);
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -227,7 +229,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             </button>
           </div>
         )}
-        {tab === "feed" && <><InstallBanner userId={user.id}/><Feed user={user} onPerson={openProfile} /></>}
+        {serviceError&&<p className="error service-status" role="status">{serviceError} Повторные запросы временно приостановлены.</p>}{tab === "feed" && <><InstallBanner userId={user.id}/><Feed user={user} onPerson={openProfile} /></>}
         {tab === "account" && viewed && (
           <PublicProfile
             key={viewed.id}
@@ -1005,19 +1007,21 @@ function Chats({
     [error, setError] = useState(""),
     [search, setSearch] = useState("");
   useEffect(() => {
-    let active = true;
+    let active = true,inFlight=false;
+    const poll=revisionPoll<Chat[]>("chats");
     const load = () => {
-      if (document.hidden) return;
-      api<Chat[]>("chats")
+      if (document.hidden||inFlight) return;
+      inFlight=true;
+      poll()
         .then((v) => {
-          if (active) {
+          if (active && v) {
             setChats(v);
             setError("");
           }
         })
         .catch((e) => {
           if (active) setError(errorText(e));
-        });
+        }).finally(()=>{inFlight=false});
     };
     load();
     const timer = setInterval(load, 5000);
@@ -1200,12 +1204,14 @@ function Conversation({
     });
   }
   useEffect(() => {
-    let active = true;
+    let active = true,inFlight=false;
+    const poll=revisionPoll<Message[]>(`chats/${chat.id}/messages`);
     const load = () => {
-      if (document.hidden) return;
-      api<Message[]>(`chats/${chat.id}/messages`)
+      if (document.hidden||inFlight) return;
+      inFlight=true;
+      poll()
         .then((data) => {
-          if (active) {
+          if (active && data) {
             merge(data);
             if (first.current) {
               setMore(data.length === 100);
@@ -1220,7 +1226,7 @@ function Conversation({
             setError(errorText(e));
             setLoading(false);
           }
-        });
+        }).finally(()=>{inFlight=false});
     };
     load();
     const timer = setInterval(load, 3000);

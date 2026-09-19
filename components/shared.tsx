@@ -15,11 +15,13 @@ export function VerifiedBadge({ verified }: { verified?: boolean }) {
     </span>
   );
 }
+let servicePauseUntil=0,serviceError='';
 export async function api<T>(
   path: string,
   method = "GET",
   data?: unknown,
 ): Promise<T> {
+  if(Date.now()<servicePauseUntil)throw new Error(serviceError);
   const res = await fetch(`/api/${path}`, {
     method,
     headers: { "Content-Type": "application/json" },
@@ -27,6 +29,8 @@ export async function api<T>(
     cache: "no-store",
   });
   const body = await res.json();
+  if(res.status===503){serviceError=body.error||'Сервер временно недоступен.';servicePauseUntil=Date.now()+Math.min(300,Math.max(10,Number(res.headers.get('retry-after'))||30))*1000;window.dispatchEvent(new CustomEvent('telejka-service-status',{detail:serviceError}));}
+  else if(res.ok&&serviceError){serviceError='';servicePauseUntil=0;window.dispatchEvent(new CustomEvent('telejka-service-status',{detail:''}));}
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith("auth/"))
       window.location.assign("/register");

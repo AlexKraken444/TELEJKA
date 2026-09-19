@@ -19,13 +19,13 @@ export async function createSession(userId: string) {
     maxAge: SESSION_SECONDS,
   });
 }
-export async function currentUser() {
+export async function currentUser(includeAvatar=true) {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
   if (!databaseUrl()) return fetchSessionUser(token);
   await ensureDatabase();
   const [user] =
-    await db()`SELECT telejka_medals(u.id) medals, u.id, u.name, u.bio, u.avatar, u.color, u.verified, u.plus_until, COALESCE(u.plus_until>now(),false) plus_active, CASE WHEN u.plus_until>now() THEN u.name_color END name_color,u.is_private, u.created_at FROM users u JOIN sessions s ON s.user_id = u.id WHERE s.token_hash = ${hashToken(token)} AND s.expires_at > now()`;
+    await db()`SELECT telejka_medals(u.id) medals, u.id, u.name, u.bio, CASE WHEN ${includeAvatar} THEN u.avatar ELSE NULL END avatar, u.color, u.verified, u.plus_until, COALESCE(u.plus_until>now(),false) plus_active, CASE WHEN u.plus_until>now() THEN u.name_color END name_color,u.is_private, u.created_at FROM users u JOIN sessions s ON s.user_id = u.id WHERE s.token_hash = ${hashToken(token)} AND s.expires_at > now()`;
   return user
     ? {
         ...user,

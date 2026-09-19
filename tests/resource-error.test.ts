@@ -1,0 +1,2 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {resourceFailure} from '../lib/resource-error';
+test('transfer quota has a bounded retry and contains no database secrets',()=>{const r=resourceFailure(new Error('project exceeded data transfer quota: postgres://secret'));assert.equal(r.reason,'DATA_TRANSFER_QUOTA');assert.equal(r.retryAfter,300);assert.ok(!JSON.stringify(r).includes('secret'));assert.equal(resourceFailure(new Error('connection reset')).quota,false)});
