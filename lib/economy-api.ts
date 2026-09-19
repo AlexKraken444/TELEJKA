@@ -94,7 +94,7 @@ export async function economyApi(req:NextRequest,path:string[],input:Record<stri
    const seconds=item.kind==='week'?604800:item.kind==='month'?2592000:item.kind==='year'?31536000:Number(item.seconds);
    await tx`SELECT user_id FROM wallets WHERE user_id=${userId} FOR UPDATE`;
    const [active]=await tx`SELECT plus_until>='9999-01-01'::timestamptz permanent FROM users WHERE id=${userId} FOR UPDATE`;
-   if(active.permanent)throw new FeatureError(400,"У тебя уже бессрочная TELEJKA+. Предмет можно продать.");
+   if(active.permanent)throw new FeatureError(400,"У тебя уже бессрочная TELEJKA PLUS. Предмет можно продать.");
    if(item.kind==='forever')await tx`UPDATE users SET plus_until='9999-12-31T00:00:00Z' WHERE id=${userId}`;
    else await tx`UPDATE users SET plus_until=least('9999-12-31'::timestamptz,greatest(COALESCE(plus_until,now()),now())+${seconds}*interval '1 second') WHERE id=${userId}`;
    await tx`UPDATE reward_items SET consumed=true WHERE id=${itemId}`;

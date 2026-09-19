@@ -9,6 +9,8 @@ type Wallet = {
   unlimited?: boolean;
   streak: number;
   plus_active: boolean;
+  mini_active: boolean;
+  mini_until?: string;
   plus_until?: string;
   granted?: number;
   quest: {
@@ -60,7 +62,7 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
       window.removeEventListener("economy-changed",load);
     };
   }, []);
-  async function action(buy: boolean) {
+  async function action(buy: boolean, tier: "plus"|"mini"="plus") {
     if (busy) return;
     setBusy(true);
     setError("");
@@ -68,7 +70,7 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
       if (buy && !request.current) request.current = crypto.randomUUID();
       setWallet(
         await api<Wallet>(
-          buy ? "plus/buy" : "rewards/claim",
+          buy ? tier+"/buy" : "rewards/claim",
           "POST",
           buy ? { requestId: request.current } : {},
         ),
@@ -137,11 +139,11 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
             </button>
           </div>
           <PrizeReel onUpdated={onUpdated}/><button className="secondary" onClick={()=>window.dispatchEvent(new CustomEvent("studio-tab",{detail:"market"}))}>Рынок и мой инвентарь →</button>
-          <div className="reward-card plus-card">
-            <h2>TELEJKA+</h2>
-            <p>100 БАТОНчиков на месяц</p>
+          <div className="reward-card"><img className="plan-logo" src="/mini.png" alt="mini"/><h2>TELEJKA mini</h2><p>150 БАТОНчиков на месяц</p><p>Закрытый аккаунт и голосовые сообщения.</p>{wallet.mini_active&&<p>До {new Date(wallet.mini_until!).toLocaleDateString('ru')}</p>}<button className="primary" disabled={busy||(!wallet.unlimited&&Number(wallet.balance)<150)} onClick={()=>action(true,'mini')}>{wallet.mini_active?'Продлить mini':'Купить mini'}</button></div><div className="reward-card plus-card">
+            <img className="plan-logo" src="/plus.png" alt="PLUS"/><h2>TELEJKA PLUS</h2>
+            <p>1000 БАТОНчиков на месяц</p>
             <p>
-              10 реакций на посты и сообщения · до 3 на публикацию.
+              Каналы, голосовые, музыка в профиле, 10 реакций · до 3 на публикацию.
               <br />
               Свой цвет имени.
               <br />
@@ -155,13 +157,13 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
             )}
             <button
               className="primary"
-              disabled={busy || Boolean(wallet.plus_until?.startsWith("9999")) || (!wallet.unlimited && Number(wallet.balance) < 100)}
+              disabled={busy || Boolean(wallet.plus_until?.startsWith("9999")) || (!wallet.unlimited && Number(wallet.balance) < 1000)}
               onClick={() => action(true)}
             >
-              {wallet.plus_until?.startsWith("9999")?"Бессрочная подписка":wallet.plus_active ? "Продлить на месяц" : "Купить TELEJKA+"}
+              {wallet.plus_until?.startsWith("9999")?"Бессрочная подписка":wallet.plus_active ? "Продлить на месяц" : "Купить TELEJKA PLUS"}
             </button>
             <p className="muted small">
-              Без автоматического списания. Настройки подписки — в профиле.
+              Без автоматического списания. Настройки — в разделе «Подписки».
             </p>
           </div>
         </>
@@ -255,6 +257,8 @@ type Preferences = {
   is_private: boolean;
   name_color: string | null;
   plus_active: boolean;
+  mini_active: boolean;
+  mini_until?: string;
   allowed: User[];
   blocked: User[];
 };
@@ -293,7 +297,7 @@ export function PlusSettings({ userId, onSaved }: { userId:string; onSaved: (u: 
     try {
       await api("me/preferences", "PATCH", {
         is_private: data.is_private,
-        name_color: data.name_color,
+        name_color: data.plus_active?data.name_color:null,
         allowed_ids: data.allowed.map((p) => p.id),
       });
       onSaved(await api<User>("me"));
@@ -315,7 +319,7 @@ export function PlusSettings({ userId, onSaved }: { userId:string; onSaved: (u: 
       {data && (
         <>
           <p>
-            {data.plus_active
+            {(data.plus_active || data.mini_active)
               ? "Подписка активна"
               : "Подписка доступна в разделе «БАТОНчики»."}
           </p>
@@ -341,7 +345,7 @@ export function PlusSettings({ userId, onSaved }: { userId:string; onSaved: (u: 
             <input
               type="checkbox"
               checked={data.is_private}
-              disabled={!data.plus_active && !data.is_private}
+              disabled={!data.plus_active && !data.mini_active && !data.is_private}
               onChange={(e) =>
                 setData({ ...data, is_private: e.target.checked })
               }
@@ -369,7 +373,7 @@ export function PlusSettings({ userId, onSaved }: { userId:string; onSaved: (u: 
                   <label className="setting-row" key={p.id}>
                     <input
                       type="checkbox"
-                      disabled={!data.plus_active}
+                      disabled={!data.plus_active && !data.mini_active}
                       checked={data.allowed.some((x) => x.id === p.id)}
                       onChange={(e) =>
                         setData({

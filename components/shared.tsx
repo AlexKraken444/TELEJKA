@@ -123,16 +123,7 @@ export function UserName({ user }: { user: User }) {
   return (
     <span style={{ color: user.name_color || undefined }}>
       {user.name}
-      {user.plus_active && (
-        <span
-          className="plus-badge"
-          role="img"
-          aria-label="TELEJKA+"
-          title="TELEJKA+"
-        >
-          <i className="centered-plus" aria-hidden="true"/>
-        </span>
-      )}
+      {(user.plus_active||user.mini_active)&&<img className="subscription-badge" src={user.plus_active?'/plus.png':'/mini.png'} alt={user.plus_active?'PLUS':'mini'}/>}
       <VerifiedBadge verified={user.verified} />{user.medals?.map(m=><span className="medal-badge" key={m} title={{bronze:"Бронзовая медаль",silver:"Серебряная медаль",gold:"Золотая медаль"}[m]}>{{bronze:"🥉",silver:"🥈",gold:"🥇"}[m]}</span>)}
     </span>
   );

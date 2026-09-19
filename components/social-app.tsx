@@ -1,4 +1,5 @@
 "use client";
+import {Channels} from "./channels";
 import {revisionPoll} from '@/lib/poll';
 import {PostTools,RepostCard,EditContent} from "./content-tools";
 import {MobileNavigation} from "./mobile-navigation";
@@ -92,6 +93,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     [chatId, setChatId] = useState<string | null>(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    if(params.has('channel'))setTab('chats');
     const chat = params.get('chat');
     if (params.get('account') === initialUser.id && chat && /^[0-9a-f-]{36}$/i.test(chat)) {
       setChatId(chat); setTab('chats'); window.history.replaceState(null, '', '/feed');
@@ -145,7 +147,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     { key: "rewards" as const, label: "БАТОНчики", icon: Sparkles },
     { key: "market" as const, label: "Рынок", icon: Sparkles },
     { key: "profile" as const, label: "Профиль", icon: UserRound },
-    { key: "plus" as const, label: "TELEJKA+", icon: Settings },
+    { key: "plus" as const, label: "Подписки", icon: Settings },
   ];
   return (
     <OnlineContext.Provider value={online}><CallProvider user={user}><StudioRuntime/><MobileNavigation tab={tab} onChange={setTab}/><div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
@@ -280,8 +282,8 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             </div>
           </>
         )}
-        {tab === "plus" && <><Header title="TELEJKA+" subtitle="Подписка, оформление и приватность"/><div className="plus-intro section-pad"><span className="plus-emblem" aria-hidden="true"><i className="centered-plus"/></span><div><h2>{user.plus_active?"Твоя TELEJKA+":"Больше возможностей"}</h2><p>{user.plus_active?"Настрой подписку под себя.":"Реакции, цвет имени, музыка и закрытый профиль."}</p></div><button className="secondary" onClick={()=>setTab("rewards")}>{user.plus_active?"Продлить":"Подключить"}</button></div><PlusSettings userId={user.id} onSaved={setUser}/></>}
-        {(tab === "profile" || tab === "plus" || tab === "rewards" || tab === "market") && <nav className="mobile-settings-tabs" aria-label="Настройки аккаунта"><button className={tab==='profile'?'active':''} onClick={()=>setTab('profile')}>Профиль</button><button className={tab==='rewards'?'active':''} onClick={()=>setTab('rewards')}>БАТОНчики</button><button className={tab==='plus'?'active':''} onClick={()=>setTab('plus')}>TELEJKA+</button><button className={tab==='market'?'active':''} onClick={()=>setTab('market')}>Рынок</button></nav>}
+        {tab === "plus" && <><Header title="Подписки" subtitle="Подписка, оформление и приватность"/><div className="plus-intro section-pad"><img className="plan-logo" src={user.plus_active?"/plus.png":"/mini.png"} alt={user.plus_active?"PLUS":"mini"}/><div><h2>{user.plus_active?"TELEJKA PLUS":user.mini_active?"TELEJKA mini":"PLUS и mini"}</h2><p>{user.plus_active?"Настрой подписку под себя.":"mini: приватность и голосовые. PLUS: все возможности и создание каналов."}</p></div><button className="secondary" onClick={()=>setTab("rewards")}>{user.plus_active?"Продлить":"Подключить"}</button></div><PlusSettings userId={user.id} onSaved={setUser}/></>}
+        {(tab === "profile" || tab === "plus" || tab === "rewards" || tab === "market") && <nav className="mobile-settings-tabs" aria-label="Настройки аккаунта"><button className={tab==='profile'?'active':''} onClick={()=>setTab('profile')}>Профиль</button><button className={tab==='rewards'?'active':''} onClick={()=>setTab('rewards')}>БАТОНчики</button><button className={tab==='plus'?'active':''} onClick={()=>setTab('plus')}>Подписки</button><button className={tab==='market'?'active':''} onClick={()=>setTab('market')}>Рынок</button></nav>}
         {tab === "profile" && (
           <>
             <Profile user={user} onSaved={setUser} />
@@ -1030,7 +1032,8 @@ function Chats({
       clearInterval(timer);
     };
   }, []);
-  const [filter,setFilter]=useState<'all'|'direct'|'groups'|'calls'>('all');
+  const [filter,setFilter]=useState<'all'|'direct'|'groups'|'calls'|'channels'>('all');
+  useEffect(()=>{if(new URLSearchParams(location.search).has('channel'))setFilter('channels')},[]);
   const current = chats.find((c) => c.id === selected);
   return (
     <>
@@ -1048,7 +1051,8 @@ function Chats({
           {error}
         </p>
       )}
-      <div className={`messenger ${selected ? "has-selected" : ""}`}>
+      <div className="channel-toolbar section-pad"><button className="secondary" aria-pressed={filter!=='channels'} onClick={()=>setFilter('all')}>Чаты</button><button className="secondary" aria-pressed={filter==='channels'} onClick={()=>{setSelected(null);onSelected(null);setFilter('channels')}}>Каналы</button></div>
+      {filter==='channels'?<Channels user={user}/>:<div className={`messenger ${selected ? "has-selected" : ""}`}>
         <section className="chat-list">
           <label className="search-field">
             <Search size={17} />
@@ -1146,7 +1150,7 @@ function Chats({
             />
           )}
         </section>
-      </div>
+      </div>}
       {creating && (
         <NewChat
           onClose={() => setCreating(false)}
@@ -1429,7 +1433,7 @@ function Conversation({
       <div className="chat-files">
         <FilePicker files={files} onChange={setFiles} disabled={busy} chat inputId="chat-file-input" />
       </div>
-      <form className="message-form" onSubmit={send}><VoiceRecorder disabled={busy||files.length>=4} onFile={file=>setFiles(current=>[...current,file].slice(0,4))}/>
+      <form className="message-form" onSubmit={send}><VoiceRecorder disabled={busy||files.length>=4||(!user.plus_active&&!user.mini_active)} onFile={file=>setFiles(current=>[...current,file].slice(0,4))}/>
         <label className="message-attach icon-button" htmlFor="chat-file-input" title="Прикрепить файл"><Paperclip size={21}/><span className="sr-only">Прикрепить файл</span></label>
         <textarea
           placeholder="Напиши что-нибудь…"

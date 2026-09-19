@@ -1,0 +1,10 @@
+CREATE TABLE channels(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),owner_id uuid NOT NULL REFERENCES users(id),title text NOT NULL,description text NOT NULL DEFAULT '',created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE channel_members(channel_id uuid REFERENCES channels(id) ON DELETE CASCADE,user_id uuid REFERENCES users(id) ON DELETE CASCADE,notifications boolean NOT NULL DEFAULT true,joined_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(channel_id,user_id));
+CREATE TABLE channel_posts(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),channel_id uuid NOT NULL REFERENCES channels(id) ON DELETE CASCADE,body text NOT NULL,request_id uuid NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),UNIQUE(channel_id,request_id));
+CREATE INDEX channel_posts_recent ON channel_posts(channel_id,created_at DESC);
+CREATE TABLE channel_comments(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),post_id uuid NOT NULL REFERENCES channel_posts(id) ON DELETE CASCADE,user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,body text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX channel_comments_post ON channel_comments(post_id,created_at);
+ALTER TABLE channel_posts ADD COLUMN attachments jsonb NOT NULL DEFAULT '[]';
+CREATE TABLE channel_notifications(user_id uuid REFERENCES users(id) ON DELETE CASCADE,post_id uuid REFERENCES channel_posts(id) ON DELETE CASCADE,PRIMARY KEY(user_id,post_id));
+CREATE INDEX channel_members_user ON channel_members(user_id,channel_id);
+CREATE INDEX channel_posts_created ON channel_posts(created_at);

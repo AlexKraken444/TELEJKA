@@ -39,7 +39,7 @@ export function ThemeToggle() {
     </button>
   );
 }
-type Notice = { id: string; conversation_id: string; name: string };
+type Notice = { id: string; conversation_id: string; channel_id?: string; name: string };
 export function Notifications({
   userId,
   onOpen,
@@ -76,12 +76,12 @@ export function Notifications({
         <div className="notification" key={n.id}>
           <button
             onClick={() => {
-              onOpen(n.conversation_id);
+              if(n.channel_id)window.location.assign('/feed?channel='+encodeURIComponent(n.channel_id));else onOpen(n.conversation_id);
               setNotices((old) => old.filter((x) => x.id !== n.id));
             }}
           >
             <strong>{n.name}</strong>
-            <span>Новое сообщение</span>
+            <span>{n.channel_id?'Новая публикация в канале':'Новое сообщение'}</span>
           </button>
           <button
             className="icon-button"

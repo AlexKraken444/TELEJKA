@@ -1,3 +1,4 @@
+import {channelsApi} from './channels-api';
 import {economyApi} from './economy-api';
 import { VERIFICATION_OWNER_ID } from "./verification";
 import { NextRequest, NextResponse } from "next/server";
@@ -43,7 +44,7 @@ export async function canSendChat(chatId: string, userId: string) {
 async function walletStatus(userId: string) {
   const sql = db();
   const [w] =
-    await sql`SELECT w.balance::text balance,w.streak,w.last_visit::text last_visit,u.plus_until,COALESCE(u.plus_until>now(),false) plus_active,(now() AT TIME ZONE 'Europe/Moscow')::date::text today FROM wallets w JOIN users u ON u.id=w.user_id WHERE w.user_id=${userId}`;
+    await sql`SELECT w.balance::text balance,w.streak,w.last_visit::text last_visit,u.mini_until,COALESCE(u.mini_until>now(),false) mini_active,u.plus_until,COALESCE(u.plus_until>now(),false) plus_active,(now() AT TIME ZONE 'Europe/Moscow')::date::text today FROM wallets w JOIN users u ON u.id=w.user_id WHERE w.user_id=${userId}`;
   const [quest] =
     await sql`SELECT kind,target,progress,claimed FROM daily_quests WHERE user_id=${userId} AND day=(now() AT TIME ZONE 'Europe/Moscow')::date`;
   return {
@@ -52,7 +53,7 @@ async function walletStatus(userId: string) {
     unlimited: userId === VERIFICATION_OWNER_ID,
     quest,
     quest_reward: 30,
-    plus_price: 100,
+    plus_price: 1000, mini_price: 150,
   };
 }
 export async function communityApi(
@@ -61,6 +62,7 @@ export async function communityApi(
   input: Record<string, unknown>,
   userId: string,
 ): Promise<Response | undefined> {
+  const channel=await channelsApi(req,path,input,userId);if(channel)return channel;
   const economy=await economyApi(req,path,input,userId);if(economy)return economy;
   const sql = db(),
     route = path.join("/");
@@ -94,7 +96,7 @@ export async function communityApi(
       const [me] =
         await tx`SELECT COALESCE(plus_until>now(),false) active FROM users WHERE id=${userId} FOR UPDATE`;
       if (!me.active)
-        throw new FeatureError(403, "Музыка доступна с TELEJKA+.");
+        throw new FeatureError(403, "Музыка доступна с TELEJKA PLUS.");
       const [file] =
         await tx`SELECT id FROM uploads WHERE id=${uploadId} AND owner_id=${userId} AND ready=true AND published=false AND chat_id IS NULL AND mime IN ('audio/mpeg','audio/mp4','audio/ogg','audio/wav','audio/x-wav','audio/webm') FOR UPDATE`;
       if (!file) throw new FeatureError(400, "Аудиофайл недоступен.");
@@ -142,30 +144,32 @@ export async function communityApi(
     });
     return json(await walletStatus(userId));
   }
-  if (route === "plus/buy" && req.method === "POST") {
+  if ((route === "plus/buy" || route === "mini/buy") && req.method === "POST") {
     const { requestId } = z.object({ requestId: uuid }).strict().parse(input);
+    const tier=route.startsWith("mini")?"mini":"plus",price=tier==="mini"?150:1000;
     await sql.begin(async (tx) => {
       await tx`INSERT INTO wallets(user_id) VALUES(${userId}) ON CONFLICT DO NOTHING`;
       const [wallet] =
         await tx`SELECT balance FROM wallets WHERE user_id=${userId} FOR UPDATE`;
       const [old] =
-        await tx`SELECT 1 FROM baton_ledger WHERE user_id=${userId} AND ref=${"plus:" + requestId}`;
+        await tx`SELECT 1 FROM baton_ledger WHERE user_id=${userId} AND ref=${tier+":" + requestId}`;
       if (old) return;
       const [subscription]=await tx`SELECT plus_until>='9999-01-01'::timestamptz permanent FROM users WHERE id=${userId} FOR UPDATE`;
-      if(subscription.permanent)throw new FeatureError(400,"У тебя уже бессрочная TELEJKA+.");
+      if(tier==="plus" && subscription.permanent)throw new FeatureError(400,"У тебя уже бессрочная TELEJKA PLUS.");
       const unlimited = userId === VERIFICATION_OWNER_ID;
-      if (!unlimited && Number(wallet.balance) < 100)
-        throw new FeatureError(400, "Нужно 100 БАТОНчиков.");
+      if (!unlimited && Number(wallet.balance) < price)
+        throw new FeatureError(400, `Нужно ${price} БАТОНчиков.`);
       if (!unlimited)
-        await tx`UPDATE wallets SET balance=balance-100 WHERE user_id=${userId}`;
-      await tx`UPDATE users SET plus_until=greatest(COALESCE(plus_until,now()),now())+interval '1 month' WHERE id=${userId}`;
-      await tx`INSERT INTO baton_ledger(user_id,ref,amount) VALUES(${userId},${"plus:" + requestId},${unlimited ? 0 : -100})`;
+        await tx`UPDATE wallets SET balance=balance-${price} WHERE user_id=${userId}`;
+      if(tier==='mini')await tx`UPDATE users SET mini_until=greatest(COALESCE(mini_until,now()),now())+interval '1 month' WHERE id=${userId}`;
+      else await tx`UPDATE users SET plus_until=greatest(COALESCE(plus_until,now()),now())+interval '1 month' WHERE id=${userId}`;
+      await tx`INSERT INTO baton_ledger(user_id,ref,amount) VALUES(${userId},${tier+":" + requestId},${unlimited ? 0 : -price})`;
     });
     return json(await walletStatus(userId));
   }
   if (route === "me/preferences" && req.method === "GET") {
     const [me] =
-      await sql`SELECT is_private,name_color,plus_until,COALESCE(plus_until>now(),false) plus_active FROM users WHERE id=${userId}`;
+      await sql`SELECT COALESCE(mini_until>now(),false) mini_active,is_private,name_color,plus_until,COALESCE(plus_until>now(),false) plus_active FROM users WHERE id=${userId}`;
     const allowed =
       await sql`SELECT telejka_user(viewer_id,${userId}::uuid) AS person FROM profile_access WHERE owner_id=${userId}`;
     const blocked =
@@ -190,10 +194,10 @@ export async function communityApi(
       .parse(input);
     await sql.begin(async (tx) => {
       const [me] =
-        await tx`SELECT is_private,name_color,COALESCE(plus_until>now(),false) plus_active FROM users WHERE id=${userId} FOR UPDATE`;
+        await tx`SELECT COALESCE(mini_until>now(),false) mini_active,is_private,name_color,COALESCE(plus_until>now(),false) plus_active FROM users WHERE id=${userId} FOR UPDATE`;
       if (!me.plus_active) {
-        if (data.is_private || data.name_color)
-          throw new FeatureError(403, "Эта настройка доступна с TELEJKA+.");
+        if ((!me.mini_active && data.is_private) || data.name_color)
+          throw new FeatureError(403, "Эта настройка доступна с TELEJKA PLUS.");
       }
       const ids = [...new Set(data.allowed_ids)].filter((x) => x !== userId);
       if (ids.length) {
@@ -271,7 +275,7 @@ export async function communityApi(
           column = isPost ? "post_id" : "message_id";
         if (active) {
           if (!me.plus_active)
-            throw new FeatureError(403, "Реакции доступны с TELEJKA+.");
+            throw new FeatureError(403, "Реакции доступны с TELEJKA PLUS.");
           const rows =
             await tx`SELECT emoji FROM ${tx(table)} WHERE ${tx(column)}=${target} AND user_id=${userId}`;
           if (rows.some((r) => r.emoji === emoji)) return;

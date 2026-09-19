@@ -107,9 +107,10 @@ export async function featureApi(
     );
   }
   if (route === "notifications" && req.method === "POST") {
+    const channelNotices=await sql`WITH claimed AS (INSERT INTO channel_notifications(user_id,post_id) SELECT ${userId},p.id FROM channel_posts p JOIN channel_members m ON m.channel_id=p.channel_id JOIN channels c ON c.id=p.channel_id WHERE m.user_id=${userId} AND m.notifications AND c.owner_id<>${userId} AND p.created_at>=m.joined_at AND NOT EXISTS(SELECT 1 FROM channel_notifications n WHERE n.user_id=${userId} AND n.post_id=p.id) ORDER BY p.created_at LIMIT 30 ON CONFLICT DO NOTHING RETURNING post_id) SELECT p.id,p.channel_id,c.title name FROM claimed n JOIN channel_posts p ON p.id=n.post_id JOIN channels c ON c.id=p.channel_id`;
     // Claim rows atomically: a reload or second tab cannot show a notification twice.
     return reply(
-      await sql`WITH candidates AS (
+      [...channelNotices,...await sql`WITH candidates AS (
     SELECT m.id FROM messages m JOIN members mb ON mb.conversation_id=m.conversation_id
     WHERE mb.user_id=${userId} AND m.user_id<>${userId}
     AND (mb.cleared_at IS NULL OR m.created_at>mb.cleared_at)
@@ -119,7 +120,7 @@ export async function featureApi(
     ORDER BY m.created_at,m.id LIMIT 30
    ), claimed AS (
     INSERT INTO notification_deliveries(user_id,message_id) SELECT ${userId},id FROM candidates ON CONFLICT DO NOTHING RETURNING message_id
-   ) SELECT m.id,m.conversation_id,u.name FROM messages m JOIN claimed c ON c.message_id=m.id JOIN users u ON u.id=m.user_id ORDER BY m.created_at`,
+   ) SELECT m.id,m.conversation_id,u.name FROM messages m JOIN claimed c ON c.message_id=m.id JOIN users u ON u.id=m.user_id ORDER BY m.created_at`],
     );
   }
   if (route === "uploads" && req.method === "POST") {
@@ -129,8 +130,10 @@ export async function featureApi(
         mime: z.string().max(100),
         size: z.number().int().min(1).max(26214416),
         chatId: id.nullable().default(null),
+        voice: z.boolean().default(false),
       })
       .parse(input);
+    if(data.voice){const [plan]=await sql`SELECT COALESCE(plus_until>now(),false) OR COALESCE(mini_until>now(),false) allowed FROM users WHERE id=${userId}`;if(!plan?.allowed)throw new FeatureError(403,'Голосовые доступны с mini или PLUS.');}
     if (data.chatId) await membership(data.chatId, userId);
     else if (
       ![
@@ -158,7 +161,7 @@ export async function featureApi(
       const [me] =
         await sql`SELECT plus_until>now() active FROM users WHERE id=${userId}`;
       if (!me?.active)
-        throw new FeatureError(403, "Музыка доступна с TELEJKA+.");
+        throw new FeatureError(403, "Музыка доступна с TELEJKA PLUS.");
     }
     const [created] = await sql.begin(async (tx) => {
       await tx`SELECT id FROM users WHERE id=${userId} FOR UPDATE`;
@@ -188,7 +191,7 @@ export async function featureApi(
         else {
           const [visible] =
             await sql`SELECT 1 FROM posts p WHERE p.attachments @> ${sql.json([{ id: uploadId }])}::jsonb AND telejka_can_view(p.user_id,${userId}::uuid)
-          UNION ALL SELECT 1 FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.attachments @> ${sql.json([{ id: uploadId }])}::jsonb AND telejka_can_view(p.user_id,${userId}::uuid) AND telejka_can_view(c.user_id,${userId}::uuid) UNION ALL SELECT 1 FROM profile_music m JOIN users u ON u.id=m.user_id WHERE m.upload_id=${uploadId} AND telejka_can_view(u.id,${userId}::uuid) LIMIT 1`;
+          UNION ALL SELECT 1 FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.attachments @> ${sql.json([{ id: uploadId }])}::jsonb AND telejka_can_view(p.user_id,${userId}::uuid) AND telejka_can_view(c.user_id,${userId}::uuid) UNION ALL SELECT 1 FROM channel_posts cp WHERE cp.attachments @> ${sql.json([{ id: uploadId }])}::jsonb UNION ALL SELECT 1 FROM profile_music m JOIN users u ON u.id=m.user_id WHERE m.upload_id=${uploadId} AND telejka_can_view(u.id,${userId}::uuid) LIMIT 1`;
           if (!visible) throw new FeatureError(404, "Файл недоступен.");
         }
       }

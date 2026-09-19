@@ -18,4 +18,8 @@ test('service worker shows generic notification and opens only local chat',async
  assert.equal(new URL(opened).searchParams.get('chat'),id);
  handlers.notificationclick({notification:{data:{chatId:'https://evil.test'},close(){}},waitUntil:(p:Promise<unknown>)=>pending=p});await pending;
  assert.equal(opened,'https://telejka.vercel.app/feed');
+ handlers.push({data:{json:()=>({kind:'channel',channelId:id,userId:id,messageId:id})},waitUntil:(p:Promise<unknown>)=>pending=p});await pending;
+ assert.equal(shown.body,'Новая публикация в канале');
+ handlers.notificationclick({notification:{data:shown.data,close(){}},waitUntil:(p:Promise<unknown>)=>pending=p});await pending;
+ assert.equal(new URL(opened).searchParams.get('channel'),id);
 });

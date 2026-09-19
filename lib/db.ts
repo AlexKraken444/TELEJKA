@@ -70,6 +70,8 @@ export function ensureDatabase() {
         if(!inlineDone){await tx.unsafe(await readFile(join(process.cwd(),'db','polls-inline.sql'),'utf8'));await tx`INSERT INTO telejka_migrations(name) VALUES ('polls-inline-v1')`;}
         const [editDone]=await tx`SELECT 1 FROM telejka_migrations WHERE name='edit-share-v1'`;if(!editDone){await tx.unsafe(await readFile(join(process.cwd(),'db','edit-share.sql'),'utf8'));await tx`INSERT INTO telejka_migrations(name) VALUES('edit-share-v1')`;}
         const [economyDone]=await tx`SELECT 1 FROM telejka_migrations WHERE name='economy-v1'`;if(!economyDone){await tx.unsafe(await readFile(join(process.cwd(),'db','economy.sql'),'utf8'));await tx`INSERT INTO telejka_migrations(name) VALUES('economy-v1')`;}
+        const [plansDone]=await tx`SELECT 1 FROM telejka_migrations WHERE name='subscriptions-v1'`;if(!plansDone){await tx.unsafe(await readFile(join(process.cwd(),'db','subscriptions.sql'),'utf8'));await tx`INSERT INTO telejka_migrations(name) VALUES('subscriptions-v1')`;}
+        const [channelsDone]=await tx`SELECT 1 FROM telejka_migrations WHERE name='channels-v1'`;if(!channelsDone){await tx.unsafe(await readFile(join(process.cwd(),'db','channels.sql'),'utf8'));await tx`INSERT INTO telejka_migrations(name) VALUES('channels-v1')`;}
         const [presenceDone]=await tx`SELECT 1 FROM telejka_migrations WHERE name='presence-v1'`;if(!presenceDone){await tx.unsafe(await readFile(join(process.cwd(),'db','presence.sql'),'utf8'));await tx`INSERT INTO telejka_migrations(name) VALUES('presence-v1')`;}
       });
     })().catch((error) => {

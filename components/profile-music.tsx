@@ -131,7 +131,7 @@ export function ProfileMusic({
           <small>
             {enabled
               ? "MP3, M4A, OGG, WAV, WebM · до 25 МБ"
-              : "Доступно с TELEJKA+"}
+              : "Доступно с TELEJKA PLUS"}
           </small>
         </div>
       )}

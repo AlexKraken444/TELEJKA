@@ -3,6 +3,8 @@ export type User = {
   medals?: string[];
   follower_count?: number;
   plus_active?: boolean;
+  mini_active?: boolean;
+  mini_until?: string;
   plus_until?: string;
   name_color?: string | null;
   is_private?: boolean;

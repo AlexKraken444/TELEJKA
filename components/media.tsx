@@ -120,6 +120,7 @@ export async function uploadFiles(
         name: chatId ? "encrypted" : file.name.slice(0, 160),
         mime: chatId ? "application/octet-stream" : file.type,
         size: data.byteLength,
+        voice: !!chatId && file.name.startsWith("Голосовое-"),
         chatId,
       },
     );

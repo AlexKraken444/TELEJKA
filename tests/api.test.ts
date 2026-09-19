@@ -756,7 +756,7 @@ test(
       ).status,
       400,
     );
-    await db.query("UPDATE wallets SET balance=150 WHERE user_id=$1", [
+    await db.query("UPDATE wallets SET balance=1050 WHERE user_id=$1", [
       alice.id,
     ]);
     const purchase = crypto.randomUUID();
@@ -1441,6 +1441,37 @@ test(
     const exported=await request('market/list','POST',exportData,alice.cookie);assert.equal(exported.status,200,JSON.stringify(exported.body));
     assert.equal((await request('me','GET',undefined,alice.cookie)).body.plus_active,false);
     assert.equal((await request('market/list','POST',exportData,alice.cookie)).body.id,exported.body.id);
+
+    // Plans are enforced by the server; mini cannot acquire PLUS privileges.
+    await db.query('UPDATE users SET plus_until=NULL,mini_until=NULL WHERE id=$1',[bob.id]);
+    await db.query('UPDATE wallets SET balance=300 WHERE user_id=$1',[bob.id]);
+    assert.equal((await request('uploads','POST',{name:'encrypted',mime:'application/octet-stream',size:10,voice:true},bob.cookie)).status,403);
+    const miniPurchase=crypto.randomUUID();
+    for(let i=0;i<2;i++)assert.equal((await request('mini/buy','POST',{requestId:miniPurchase},bob.cookie)).status,200);
+    const miniWallet=(await request('rewards','GET',undefined,bob.cookie)).body;
+    assert.equal((await request('uploads','POST',{name:'encrypted',mime:'application/octet-stream',size:10,voice:true,chatId:direct.body.id},bob.cookie)).status,201);
+    assert.equal(miniWallet.balance,150);assert.equal(miniWallet.mini_active,true);assert.equal(miniWallet.plus_active,false);
+    assert.equal((await request('me/preferences','PATCH',{is_private:true,name_color:null,allowed_ids:[]},bob.cookie)).status,200);
+    assert.equal((await request('me/preferences','PATCH',{is_private:true,name_color:'#ff0000',allowed_ids:[]},bob.cookie)).status,403);
+    assert.equal((await request('channels','POST',{title:'mini cannot create'},bob.cookie)).status,403);
+    await db.query("UPDATE users SET plus_until=now()+interval '1 month' WHERE id=$1",[alice.id]);
+    const channel=await request('channels','POST',{title:'Тестовый канал',description:'Новости'},alice.cookie);assert.equal(channel.status,200,JSON.stringify(channel.body));
+    const channelPath='channels/'+channel.body.id;
+    assert.equal((await request(channelPath+'/subscription','POST',{subscribed:true},bob.cookie)).status,200);
+    assert.equal((await request(channelPath+'/posts','POST',{body:'Чужая публикация',requestId:crypto.randomUUID()},bob.cookie)).status,403);
+    const channelDraft={body:'Первая публикация',requestId:crypto.randomUUID()};
+    const channelPost=await request(channelPath+'/posts','POST',channelDraft,alice.cookie);assert.equal(channelPost.status,200,JSON.stringify(channelPost.body));
+    assert.equal((await request(channelPath+'/posts','POST',channelDraft,alice.cookie)).body.id,channelPost.body.id);
+    assert.equal((await request(channelPath+'/posts','GET',undefined,bob.cookie)).body.length,1);
+    assert.equal((await request(channelPath+'/posts/'+channelPost.body.id+'/comments','POST',{body:'Комментарий'},bob.cookie)).status,200);
+    assert.equal((await request(channelPath+'/posts/'+channelPost.body.id+'/comments','GET',undefined,alice.cookie)).body.length,1);
+    const channelNotices=(await request('notifications','POST',{},bob.cookie)).body;assert.ok(channelNotices.some((n:any)=>n.channel_id===channel.body.id));
+    assert.ok(!(await request('notifications','POST',{},bob.cookie)).body.some((n:any)=>n.channel_id===channel.body.id));
+    assert.equal((await request(channelPath+'/subscription','POST',{subscribed:true,notifications:false},bob.cookie)).status,200);
+    await request(channelPath+'/posts','POST',{body:'Тихая публикация',requestId:crypto.randomUUID()},alice.cookie);
+    assert.ok(!(await request('notifications','POST',{},bob.cookie)).body.some((n:any)=>n.channel_id===channel.body.id));
+    assert.equal((await request(channelPath,'DELETE',undefined,bob.cookie)).status,403);
+    assert.equal((await request(channelPath,'DELETE',undefined,alice.cookie)).status,200);
     await request("auth/logout", "POST", {}, alice.cookie);
     assert.equal((await db.query('SELECT * FROM push_subscriptions')).rows.length,0);
     assert.equal(

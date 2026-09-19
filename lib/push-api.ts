@@ -98,3 +98,9 @@ export async function sendCallPush(userId:string,callId:string,chatId:string){
  }catch(error){if([404,410].includes((error as {statusCode:number}).statusCode))await sql`DELETE FROM push_subscriptions WHERE id=${sub.id}`;}}));
 }
 
+
+export async function sendChannelPush(channelId:string,messageId:string){
+ const sql=db();const subs=await sql`SELECT s.* FROM push_subscriptions s JOIN sessions se ON se.token_hash=s.session_hash JOIN channel_members m ON m.user_id=s.user_id JOIN channels c ON c.id=m.channel_id WHERE m.channel_id=${channelId} AND m.notifications AND s.user_id<>c.owner_id AND se.expires_at>now()`;
+ if(!subs.length)return;const keys=await vapid();
+ for(let start=0;start<subs.length;start+=10)await Promise.allSettled(subs.slice(start,start+10).map(async sub=>{try{await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},JSON.stringify({kind:'channel',channelId,messageId,userId:sub.user_id}),{vapidDetails:{subject:'https://telejka.vercel.app',publicKey:keys.public_key,privateKey:keys.private_key},TTL:604800,urgency:'high',timeout:4000,topic:messageId.replaceAll('-','')});}catch(error){if([404,410].includes((error as {statusCode:number}).statusCode))await sql`DELETE FROM push_subscriptions WHERE id=${sub.id}`;}}));
+}
