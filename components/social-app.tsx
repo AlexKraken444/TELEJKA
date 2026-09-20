@@ -62,7 +62,7 @@ import {
   time,
 } from "./shared";
 import { ThemeToggle, Notifications, registerDevice } from "./preferences";
-import {Advertisement,useAdvertisements,TransferButton,TransferReceipt} from './commerce';
+import {RandomAdvertisement,useAdvertisements,TransferButton,TransferReceipt} from './commerce';
 import { FilePicker, uploadFiles, MediaList } from "./media";
 import { EncryptedMessage } from "./encrypted-message";
 import { encryptMessage, type PublicDevice } from "@/lib/crypto-chat";
@@ -552,7 +552,7 @@ function Feed({
               onPerson={onPerson}
               onChange={() => refresh()}
             />
-            {(index+1)%4===0&&adSlots[Math.floor(index/4)]&&<Advertisement slot={adSlots[Math.floor(index/4)]} userId={user.id}/>}
+            {(index+1)%3===0&&adSlots.length>0&&<RandomAdvertisement slots={adSlots} userId={user.id}/>}
             </div>
           ))}
         </div>
@@ -563,7 +563,6 @@ function Feed({
           text=""
         />
       )}
-      {adSlots.slice(Math.min(5,Math.floor(posts.length/4))).map(slot=><Advertisement key={slot.slot} slot={slot} userId={user.id}/>)}
       {more && (
         <button
           className="load-more secondary"

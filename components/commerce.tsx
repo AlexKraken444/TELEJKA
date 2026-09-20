@@ -251,6 +251,14 @@ async function adPhoto(file: File) {
     URL.revokeObjectURL(url);
   }
 }
+// Choose once per placement so polling, typing and reactions do not change the ad.
+// Remounting the feed makes a fresh choice, including unoccupied slots.
+export function RandomAdvertisement({slots,userId}:{slots:AdSlot[];userId:string}){
+  const [slotNumber]=useState(()=>1+Math.floor(Math.random()*5));
+  const slot=slots.find(item=>item.slot===slotNumber);
+  return slot?<Advertisement slot={slot} userId={userId}/>:null;
+}
+
 export function Advertisement({
   slot,
   userId,
