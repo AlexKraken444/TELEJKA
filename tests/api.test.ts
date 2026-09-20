@@ -1,3 +1,4 @@
+import {commerceFlow} from './commerce-flow';
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -1483,6 +1484,7 @@ test(
     assert.equal((await request('me','GET',undefined,bob.cookie)).body.can_manage_verification,false);
     assert.equal((await request(channelPath,'DELETE',undefined,bob.cookie)).status,403);
     assert.equal((await request(channelPath,'DELETE',undefined,alice.cookie)).status,200);
+    await commerceFlow({db,request,alice,bob,vera,direct,changedEnvelope,origin});
     await request("auth/logout", "POST", {}, alice.cookie);
     assert.equal((await db.query('SELECT * FROM push_subscriptions')).rows.length,0);
     assert.equal(

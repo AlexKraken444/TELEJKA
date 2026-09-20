@@ -50,6 +50,7 @@ export type Chat = {
   updated_at: string;
 };
 export type Message = {
+  baton_amount?:number|null;
   edited_at?:string|null;
   poll_id?: string | null;
   reactions?: Reaction[];

@@ -22,7 +22,7 @@ export async function editShareApi(req:NextRequest,path:string[],input:Record<st
  }
  if(path[0]==='chats'&&path[2]==='messages'&&path.length===4&&req.method==='PATCH'){
   const chatId=z.uuid().parse(path[1]),id=z.uuid().parse(path[3]);await canSendChat(chatId,userId);
-  const envelope=envelopeSchema.parse(input.envelope);const [message]=await sql`SELECT id FROM messages WHERE id=${id} AND conversation_id=${chatId} AND user_id=${userId}`;if(!message)throw new FeatureError(404,'Сообщение не найдено.');if((await sql`SELECT id FROM polls WHERE message_id=${id}`).length)throw new FeatureError(400,'Вопрос опубликованного опроса менять нельзя.');
+  const envelope=envelopeSchema.parse(input.envelope);const [message]=await sql`SELECT id FROM messages WHERE id=${id} AND conversation_id=${chatId} AND user_id=${userId} AND baton_amount IS NULL`;if(!message)throw new FeatureError(404,'Сообщение не найдено.');if((await sql`SELECT id FROM polls WHERE message_id=${id}`).length)throw new FeatureError(400,'Вопрос опубликованного опроса менять нельзя.');
   const devices=await sql`SELECT d.id FROM device_keys d JOIN members m ON m.user_id=d.user_id WHERE m.conversation_id=${chatId}`;
   if(Object.keys(envelope.keys).length!==devices.length||devices.some(d=>!envelope.keys[d.id]))throw new FeatureError(409,'Список устройств изменился. Повторите сохранение.');
   await sql`UPDATE messages SET envelope=${sql.json(envelope)},edited_at=now() WHERE id=${id} AND user_id=${userId}`;return reply({ok:true});

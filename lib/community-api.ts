@@ -1,3 +1,4 @@
+import {commerceApi} from './commerce-api';
 import {channelsApi} from './channels-api';
 import {economyApi} from './economy-api';
 import { canManageVerification } from "./verification";
@@ -62,6 +63,7 @@ export async function communityApi(
   input: Record<string, unknown>,
   userId: string,
 ): Promise<Response | undefined> {
+  const commerce=await commerceApi(req,path,input,userId);if(commerce)return commerce;
   const channel=await channelsApi(req,path,input,userId);if(channel)return channel;
   const economy=await economyApi(req,path,input,userId);if(economy)return economy;
   const sql = db(),
@@ -170,7 +172,7 @@ export async function communityApi(
   }
   if (route === "me/preferences" && req.method === "GET") {
     const [me] =
-      await sql`SELECT COALESCE(mini_until>now(),false) mini_active,is_private,name_color,plus_until,COALESCE(plus_until>now(),false) plus_active FROM users WHERE id=${userId}`;
+      await sql`SELECT COALESCE(mini_until>now(),false) mini_active,ad_block,is_private,name_color,plus_until,COALESCE(plus_until>now(),false) plus_active FROM users WHERE id=${userId}`;
     const allowed =
       await sql`SELECT telejka_user(viewer_id,${userId}::uuid) AS person FROM profile_access WHERE owner_id=${userId}`;
     const blocked =
@@ -185,6 +187,7 @@ export async function communityApi(
     const data = z
       .object({
         is_private: z.boolean(),
+        ad_block: z.boolean().optional(),
         name_color: z
           .string()
           .regex(/^#[0-9a-fA-F]{6}$/)
@@ -197,7 +200,7 @@ export async function communityApi(
       const [me] =
         await tx`SELECT COALESCE(mini_until>now(),false) mini_active,is_private,name_color,COALESCE(plus_until>now(),false) plus_active FROM users WHERE id=${userId} FOR UPDATE`;
       if (!me.plus_active) {
-        if ((!me.mini_active && data.is_private) || data.name_color)
+        if ((!me.mini_active && data.is_private) || data.name_color || data.ad_block)
           throw new FeatureError(403, "Эта настройка доступна с TELEJKA PLUS.");
       }
       const ids = [...new Set(data.allowed_ids)].filter((x) => x !== userId);
@@ -206,7 +209,7 @@ export async function communityApi(
         if (people.length !== ids.length)
           throw new FeatureError(400, "Пользователь не найден.");
       }
-      await tx`UPDATE users SET is_private=${data.is_private},name_color=${data.name_color} WHERE id=${userId}`;
+      await tx`UPDATE users SET ad_block=COALESCE(${data.ad_block??null},ad_block),is_private=${data.is_private},name_color=${data.name_color} WHERE id=${userId}`;
       await tx`DELETE FROM profile_access WHERE owner_id=${userId}`;
       for (const id of ids)
         await tx`INSERT INTO profile_access(owner_id,viewer_id) VALUES(${userId},${id})`;

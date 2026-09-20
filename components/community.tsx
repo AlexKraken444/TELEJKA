@@ -254,6 +254,7 @@ export function Reactions({
   );
 }
 type Preferences = {
+  ad_block:boolean;
   is_private: boolean;
   name_color: string | null;
   plus_active: boolean;
@@ -297,11 +298,13 @@ export function PlusSettings({ userId, onSaved }: { userId:string; onSaved: (u: 
     try {
       await api("me/preferences", "PATCH", {
         is_private: data.is_private,
+        ad_block: data.plus_active&&data.ad_block,
         name_color: data.plus_active?data.name_color:null,
         allowed_ids: data.allowed.map((p) => p.id),
       });
       onSaved(await api<User>("me"));
       setSaved(true);
+      window.dispatchEvent(new Event("telejka-ads-changed"));
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -390,7 +393,7 @@ export function PlusSettings({ userId, onSaved }: { userId:string; onSaved: (u: 
               </div>
             </>
           )}
-          </div><div className="settings-card"><div className="settings-section-title"><span>03</span><div><h2>Музыка (PLUS)</h2><p>Композиция на странице твоего профиля</p></div></div><ProfileMusic userId={userId} editable enabled={data.plus_active}/></div><div className="settings-save"><button data-studio-action="savePlus" className="primary" disabled={busy} onClick={save}>
+          </div><div className="settings-card"><div className="settings-section-title"><span>03</span><div><h2>Музыка (PLUS)</h2><p>Композиция на странице твоего профиля</p></div></div><ProfileMusic userId={userId} editable enabled={data.plus_active}/></div><div className="settings-card"><h2>AD block (PLUS)</h2><label className="setting-row"><input type="checkbox" checked={data.ad_block} disabled={!data.plus_active} onChange={e=>setData({...data,ad_block:e.target.checked})}/>Скрывать рекламу в ленте</label><p className="muted">Работает, пока действует PLUS.</p></div><div className="settings-save"><button data-studio-action="savePlus" className="primary" disabled={busy} onClick={save}>
             Сохранить настройки
           </button>
           {saved && <p role="status">Сохранено</p>}</div>

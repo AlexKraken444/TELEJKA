@@ -62,6 +62,7 @@ import {
   time,
 } from "./shared";
 import { ThemeToggle, Notifications, registerDevice } from "./preferences";
+import {Advertisement,useAdvertisements,TransferButton,TransferReceipt} from './commerce';
 import { FilePicker, uploadFiles, MediaList } from "./media";
 import { EncryptedMessage } from "./encrypted-message";
 import { encryptMessage, type PublicDevice } from "@/lib/crypto-chat";
@@ -414,6 +415,7 @@ function Feed({
   mine?: boolean;
   authorId?: string;
 }) {
+  const adSlots=useAdvertisements(!mine&&!authorId);
   const [files, setFiles] = useState<File[]>([]);
   const [posts, setPosts] = useState<Post[]>([]),
     [body, setBody] = useState(""),
@@ -541,7 +543,8 @@ function Feed({
         <p className="loading">Загружаем ленту…</p>
       ) : posts.length ? (
         <div>
-          {posts.map((post) => (
+          {posts.map((post,index) => (
+            <div key={post.id}>
             <PostCard
               key={post.id}
               post={post}
@@ -549,6 +552,8 @@ function Feed({
               onPerson={onPerson}
               onChange={() => refresh()}
             />
+            {(index+1)%4===0&&adSlots[Math.floor(index/4)]&&<Advertisement slot={adSlots[Math.floor(index/4)]} userId={user.id}/>}
+            </div>
           ))}
         </div>
       ) : (
@@ -558,6 +563,7 @@ function Feed({
           text=""
         />
       )}
+      {adSlots.slice(Math.min(5,Math.floor(posts.length/4))).map(slot=><Advertisement key={slot.slot} slot={slot} userId={user.id}/>)}
       {more && (
         <button
           className="load-more secondary"
@@ -1395,7 +1401,7 @@ function Conversation({
                 <UserName user={m.author} />
               </strong>
             )}
-            {m.poll_id?<InlinePoll id={m.poll_id} user={user} chatId={chat.id}/>:<EncryptedMessage message={m} chatId={chat.id} userId={user.id} />}
+            {m.baton_amount?<TransferReceipt amount={m.baton_amount} own={m.user_id===user.id}/>:m.poll_id?<InlinePoll id={m.poll_id} user={user} chatId={chat.id}/>:<EncryptedMessage message={m} chatId={chat.id} userId={user.id} />}
             <Reactions
               path={"messages/" + m.id}
               initial={m.reactions}
@@ -1437,7 +1443,7 @@ function Conversation({
       <div className="chat-files">
         <FilePicker files={files} onChange={setFiles} disabled={busy} chat inputId="chat-file-input" />
       </div>
-      <form className="message-form" onSubmit={send}><VoiceRecorder disabled={busy||files.length>=4||(!user.plus_active&&!user.mini_active)} onFile={file=>setFiles(current=>[...current,file].slice(0,4))}/>
+      <form className="message-form" onSubmit={send}>{!chat.is_group&&<TransferButton chatId={chat.id} name={chat.participants.find(p=>p.id!==user.id)?.name||"Собеседник"} onSent={()=>{void api<Message[]>(`chats/${chat.id}/messages`).then(merge).catch(e=>setError(errorText(e)))}}/>}<VoiceRecorder disabled={busy||files.length>=4||(!user.plus_active&&!user.mini_active)} onFile={file=>setFiles(current=>[...current,file].slice(0,4))}/>
         <label className="message-attach icon-button" htmlFor="chat-file-input" title="Прикрепить файл"><Paperclip size={21}/><span className="sr-only">Прикрепить файл</span></label>
         <textarea
           placeholder="Напиши что-нибудь…"

@@ -85,6 +85,8 @@ async function proxyToSharedBackend(req: NextRequest, path: string[]) {
   if (session && /^[a-f0-9]{64}$/.test(session)) {
     headers.set("cookie", `${COOKIE}=${session}`);
   }
+  const adToken=req.cookies.get('telejka_ad_admin')?.value;
+  if(adToken&&/^[a-f0-9]{64}$/.test(adToken))headers.set('cookie',(headers.get('cookie')||'')+'; telejka_ad_admin='+adToken);
   const target = `${SHARED_BACKEND}/${path.map(encodeURIComponent).join("/")}${req.nextUrl.search}`;
   const upstream = await fetch(target, {
     method: req.method,
@@ -104,7 +106,7 @@ async function proxyToSharedBackend(req: NextRequest, path: string[]) {
   const setCookie = upstream.headers.get("set-cookie");
   const retry = upstream.headers.get("retry-after");
   if (retry) responseHeaders.set("retry-after", retry);
-  if (setCookie?.startsWith(`${COOKIE}=`))
+  if (setCookie?.startsWith(`${COOKIE}=`) || setCookie?.startsWith("telejka_ad_admin="))
     responseHeaders.set("set-cookie", setCookie);
   return new NextResponse(upstream.body, {
     status: upstream.status,
@@ -448,7 +450,7 @@ async function handle(
           ? z.iso.datetime({ offset: true }).parse(before)
           : new Date(Date.now() + 60000).toISOString();
         const rows =
-          await sql`SELECT telejka_message_reactions(m.id,${user.id}::uuid) AS reactions,m.id, (SELECT id FROM polls WHERE message_id=m.id) poll_id, m.user_id, m.body, m.envelope, m.created_at, m.edited_at, telejka_user(u.id,${user.id}::uuid) AS author FROM messages m JOIN users u ON u.id = m.user_id WHERE m.conversation_id = ${id} AND (${member.cleared_at}::timestamptz IS NULL OR m.created_at>${member.cleared_at}::timestamptz) AND m.created_at < ${cutoff} ORDER BY m.created_at DESC, m.id DESC LIMIT 100`;
+          await sql`SELECT telejka_message_reactions(m.id,${user.id}::uuid) AS reactions,m.id, (SELECT id FROM polls WHERE message_id=m.id) poll_id, m.user_id, m.baton_amount, m.body, m.envelope, m.created_at, m.edited_at, telejka_user(u.id,${user.id}::uuid) AS author FROM messages m JOIN users u ON u.id = m.user_id WHERE m.conversation_id = ${id} AND (${member.cleared_at}::timestamptz IS NULL OR m.created_at>${member.cleared_at}::timestamptz) AND m.created_at < ${cutoff} ORDER BY m.created_at DESC, m.id DESC LIMIT 100`;
         return json(revision?{revision,data:rows.reverse()}:rows.reverse());
       }
       if (req.method === "POST") {

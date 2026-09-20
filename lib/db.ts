@@ -73,6 +73,7 @@ export function ensureDatabase() {
         const [plansDone]=await tx`SELECT 1 FROM telejka_migrations WHERE name='subscriptions-v1'`;if(!plansDone){await tx.unsafe(await readFile(join(process.cwd(),'db','subscriptions.sql'),'utf8'));await tx`INSERT INTO telejka_migrations(name) VALUES('subscriptions-v1')`;}
         const [channelsDone]=await tx`SELECT 1 FROM telejka_migrations WHERE name='channels-v1'`;if(!channelsDone){await tx.unsafe(await readFile(join(process.cwd(),'db','channels.sql'),'utf8'));await tx`INSERT INTO telejka_migrations(name) VALUES('channels-v1')`;}
         const [refreshDone]=await tx`SELECT 1 FROM telejka_migrations WHERE name='channel-refresh-v1'`;if(!refreshDone){await tx.unsafe(await readFile(join(process.cwd(),'db','channel-refresh.sql'),'utf8'));await tx`INSERT INTO telejka_migrations(name) VALUES('channel-refresh-v1')`;}
+        const [commerceDone]=await tx`SELECT 1 FROM telejka_migrations WHERE name='commerce-v1'`;if(!commerceDone){await tx.unsafe(await readFile(join(process.cwd(),'db','commerce.sql'),'utf8'));await tx`INSERT INTO telejka_migrations(name) VALUES('commerce-v1')`;}
         const [presenceDone]=await tx`SELECT 1 FROM telejka_migrations WHERE name='presence-v1'`;if(!presenceDone){await tx.unsafe(await readFile(join(process.cwd(),'db','presence.sql'),'utf8'));await tx`INSERT INTO telejka_migrations(name) VALUES('presence-v1')`;}
       });
     })().catch((error) => {
