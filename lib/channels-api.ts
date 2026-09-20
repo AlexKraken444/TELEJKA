@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
+import sharp from "sharp";
+import { avatarSchema } from "./validation";
 import { z } from "zod";
 import { db } from "./db";
 import { FeatureError } from "./api-error";
@@ -24,16 +26,18 @@ export async function channelsApi(
         .object({
           title: z.string().trim().min(1).max(80),
           description: z.string().trim().max(500).default(""),
+          avatar: avatarSchema,
         })
         .strict()
         .parse(input);
+      const avatar = await channelAvatar(data.avatar);
       const result = await sql.begin(async (tx) => {
         const [me] =
           await tx`SELECT plus_until>now() active FROM users WHERE id=${userId} FOR UPDATE`;
         if (!me?.active)
           throw new FeatureError(403, "Создание каналов доступно с PLUS.");
         const [c] =
-          await tx`INSERT INTO channels(owner_id,title,description) VALUES(${userId},${data.title},${data.description}) RETURNING *`;
+          await tx`INSERT INTO channels(owner_id,title,description,avatar) VALUES(${userId},${data.title},${data.description},${avatar}) RETURNING *`;
         await tx`INSERT INTO channel_members(channel_id,user_id) VALUES(${c.id},${userId})`;
         return c;
       });
@@ -45,6 +49,21 @@ export async function channelsApi(
     await sql`SELECT c.*,(SELECT count(*)::int FROM channel_members WHERE channel_id=c.id) subscribers,EXISTS(SELECT 1 FROM channel_members WHERE channel_id=c.id AND user_id=${userId}) subscribed,COALESCE((SELECT notifications FROM channel_members WHERE channel_id=c.id AND user_id=${userId}),false) notifications FROM channels c WHERE c.id=${channelId}`;
   if (!channel) throw new FeatureError(404, "Канал не найден.");
   if (path.length === 2 && req.method === "GET") return json(channel);
+  if (path.length === 2 && req.method === "PATCH") {
+    if (channel.owner_id !== userId)
+      throw new FeatureError(403, "Изменять канал может только владелец.");
+    const data = z
+      .object({
+        title: z.string().trim().min(1).max(80),
+        description: z.string().trim().max(500),
+        avatar: avatarSchema,
+      })
+      .strict()
+      .parse(input);
+    const avatar = await channelAvatar(data.avatar);
+    await sql`UPDATE channels SET title=${data.title},description=${data.description},avatar=${avatar} WHERE id=${channelId}`;
+    return json({ ok: true });
+  }
   if (path.length === 2 && req.method === "DELETE") {
     if (channel.owner_id !== userId)
       throw new FeatureError(403, "Удалить канал может только владелец.");
@@ -156,4 +175,20 @@ export async function channelsApi(
     }
   }
   throw new FeatureError(404, "Действие не найдено.");
+}
+
+async function channelAvatar(value: string | null | undefined) {
+  if (!value) return null;
+  try {
+    const b = await sharp(Buffer.from(value.split(",")[1], "base64"), {
+      limitInputPixels: 16000000,
+    })
+      .rotate()
+      .resize(256, 256, { fit: "cover" })
+      .webp({ quality: 80 })
+      .toBuffer();
+    return "data:image/webp;base64," + b.toString("base64");
+  } catch {
+    throw new FeatureError(400, "Не удалось прочитать аватар канала.");
+  }
 }

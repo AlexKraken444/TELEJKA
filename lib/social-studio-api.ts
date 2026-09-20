@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import {db} from './db';
 import {FeatureError} from './api-error';
 import {canContact,canSendChat} from './community-api';
-import {VERIFICATION_OWNER_ID} from './verification';
+import {canManageVerification} from './verification';
 import {COOKIE,hashToken} from './auth';
 import {studioSchema} from './studio-schema';
 const json=(v:unknown)=>NextResponse.json(v,{headers:{'Cache-Control':'no-store'}});
@@ -30,7 +30,7 @@ export async function socialStudioApi(req:NextRequest,path:string[],input:Record
  }
  if(path[0]!=='studio')return;
  if(route==='studio'&&req.method==='GET'){const [row]=await sql`SELECT revision,config FROM studio_settings WHERE id=1`;return json(row);}
- if(userId!==VERIFICATION_OWNER_ID)throw new FeatureError(403,'Доступ только владельцу TELEJKA.');
+ if(!await canManageVerification(userId))throw new FeatureError(403,'Доступ только владельцу TELEJKA.');
  const token=req.cookies.get(COOKIE)?.value;if(!token)throw new FeatureError(401,'Войдите в аккаунт.');const session=hashToken(token);
  if(route==='studio/unlock'&&req.method==='POST'){
   const password=z.string().max(200).parse(input.password);

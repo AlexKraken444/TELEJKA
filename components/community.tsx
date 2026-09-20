@@ -323,7 +323,7 @@ export function PlusSettings({ userId, onSaved }: { userId:string; onSaved: (u: 
               ? "Подписка активна"
               : "Подписка доступна в разделе «БАТОНчики»."}
           </p>
-          <div className="settings-card"><div className="settings-section-title"><span>01</span><div><h2>Оформление</h2><p>Твой цвет имени в ленте и переписке</p></div></div>
+          <div className="settings-card"><div className="settings-section-title"><span>01</span><div><h2>Оформление (PLUS)</h2><p>Твой цвет имени в ленте и переписке</p></div></div>
           <label className="setting-row">
             Цвет имени
             <input
@@ -340,7 +340,7 @@ export function PlusSettings({ userId, onSaved }: { userId:string; onSaved: (u: 
           >
             Обычный цвет
           </button></div>
-          <div className="settings-card"><div className="settings-section-title"><span>02</span><div><h2>Приватность</h2><p>Выбери, кому открыт твой профиль</p></div></div>
+          <div className="settings-card"><div className="settings-section-title"><span>02</span><div><h2>Приватность (PLUS и mini)</h2><p>Выбери, кому открыт твой профиль</p></div></div>
           <label className="setting-row">
             <input
               type="checkbox"
@@ -390,7 +390,7 @@ export function PlusSettings({ userId, onSaved }: { userId:string; onSaved: (u: 
               </div>
             </>
           )}
-          </div><div className="settings-card"><div className="settings-section-title"><span>03</span><div><h2>Музыка</h2><p>Композиция на странице твоего профиля</p></div></div><ProfileMusic userId={userId} editable enabled={data.plus_active}/></div><div className="settings-save"><button data-studio-action="savePlus" className="primary" disabled={busy} onClick={save}>
+          </div><div className="settings-card"><div className="settings-section-title"><span>03</span><div><h2>Музыка (PLUS)</h2><p>Композиция на странице твоего профиля</p></div></div><ProfileMusic userId={userId} editable enabled={data.plus_active}/></div><div className="settings-save"><button data-studio-action="savePlus" className="primary" disabled={busy} onClick={save}>
             Сохранить настройки
           </button>
           {saved && <p role="status">Сохранено</p>}</div>

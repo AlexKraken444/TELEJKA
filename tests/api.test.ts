@@ -1470,6 +1470,17 @@ test(
     assert.equal((await request(channelPath+'/subscription','POST',{subscribed:true,notifications:false},bob.cookie)).status,200);
     await request(channelPath+'/posts','POST',{body:'Тихая публикация',requestId:crypto.randomUUID()},alice.cookie);
     assert.ok(!(await request('notifications','POST',{},bob.cookie)).body.some((n:any)=>n.channel_id===channel.body.id));
+    assert.equal((await request(channelPath,'PATCH',{title:'Чужая правка',description:'',avatar:null},bob.cookie)).status,403);
+    assert.equal((await request(channelPath,'PATCH',{title:'Новое имя канала',description:'Описание',avatar:null},alice.cookie)).status,200);
+    assert.equal((await request(channelPath,'GET',undefined,bob.cookie)).body.title,'Новое имя канала');
+    const [miniVoucher]= (await db.query<{id:string}>("INSERT INTO reward_items(owner_id,kind,tier) VALUES($1,'week','mini') RETURNING id",[bob.id])).rows;
+    await db.query('UPDATE users SET mini_until=NULL,plus_until=NULL WHERE id=$1',[bob.id]);
+    assert.equal((await request('inventory/'+miniVoucher.id+'/activate','POST',{},bob.cookie)).status,200);
+    const miniProfile=(await request('me','GET',undefined,bob.cookie)).body;assert.equal(miniProfile.mini_active,true);assert.equal(miniProfile.plus_active,false);
+    await db.query('INSERT INTO telejka_auth.owner_account(singleton,user_id) VALUES(true,$1)',[alice.id]);
+    assert.equal((await request('me','GET',undefined,alice.cookie)).body.can_manage_verification,true);
+    assert.equal((await request('rewards','GET',undefined,alice.cookie)).body.unlimited,true);
+    assert.equal((await request('me','GET',undefined,bob.cookie)).body.can_manage_verification,false);
     assert.equal((await request(channelPath,'DELETE',undefined,bob.cookie)).status,403);
     assert.equal((await request(channelPath,'DELETE',undefined,alice.cookie)).status,200);
     await request("auth/logout", "POST", {}, alice.cookie);

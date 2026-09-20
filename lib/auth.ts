@@ -30,7 +30,7 @@ export async function currentUser(includeAvatar=true) {
     ? {
         ...user,
         id: String(user.id),
-        can_manage_verification: canManageVerification(user.id),
+        can_manage_verification: await canManageVerification(user.id),
       }
     : null;
 }

@@ -2,12 +2,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { User } from "@/lib/types";
 import { FilePicker, MediaList, uploadFiles, type Attachment } from "./media";
-import { api, errorText, UserName } from "./shared";
-type Channel = {
+import { api, errorText, UserName, Avatar, readAvatar } from "./shared";
+export type Channel = {
   id: string;
   owner_id: string;
   title: string;
   description: string;
+  avatar?: string | null;
   subscribers: number;
   subscribed: boolean;
   notifications: boolean;
@@ -19,20 +20,34 @@ type Entry = {
   comment_count: number;
   attachments: Attachment[];
 };
-export function Channels({ user }: { user: User }) {
+export function Channels({
+  user,
+  initialSelection,
+  onBack,
+  onChoose,
+}: {
+  user: User;
+  initialSelection: string;
+  onBack: () => void;
+  onChoose: (id: string) => void;
+}) {
   const [channels, setChannels] = useState<Channel[]>([]),
-    [selected, setSelected] = useState<string | null>(null),
+    [selected, setSelected] = useState<string | null>(
+      initialSelection === "new" ? null : initialSelection,
+    ),
     [channel, setChannel] = useState<Channel | null>(null),
     [posts, setPosts] = useState<Entry[]>([]),
     [title, setTitle] = useState(""),
     [description, setDescription] = useState(""),
     [body, setBody] = useState(""),
     [files, setFiles] = useState<File[]>([]),
-    [creating, setCreating] = useState(false),
+    [creating, setCreating] = useState(initialSelection === "new"),
+    [avatar, setAvatar] = useState<string | null>(null),
+    [editing, setEditing] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [query, setQuery] = useState("");
-  const postRequest=useRef<string|null>(null);
+  const postRequest = useRef<string | null>(null);
   const loadList = () => api<Channel[]>("channels").then(setChannels);
   async function load(id: string) {
     const [c, p] = await Promise.all([
@@ -44,8 +59,6 @@ export function Channels({ user }: { user: User }) {
   }
   useEffect(() => {
     loadList().catch((e) => setError(errorText(e)));
-    const id = new URLSearchParams(location.search).get("channel");
-    if (id && /^[0-9a-f-]{36}$/i.test(id)) setSelected(id);
   }, []);
   useEffect(() => {
     setChannel(null);
@@ -97,7 +110,7 @@ export function Channels({ user }: { user: User }) {
       {!selected ? (
         <>
           <div className="channel-toolbar">
-            <h2>Каналы</h2>
+            <h2>Новый канал</h2><button className="secondary" onClick={onBack}>← Сообщения</button>
             {user.plus_active && (
               <button
                 className="secondary"
@@ -116,15 +129,37 @@ export function Channels({ user }: { user: User }) {
                   const c = await api<Channel>("channels", "POST", {
                     title,
                     description,
+                    avatar,
                   });
                   setCreating(false);
                   setTitle("");
                   setDescription("");
                   await loadList();
                   setSelected(c.id);
+                  onChoose(c.id);
                 });
               }}
             >
+              <Avatar
+                user={{ name: title || "Канал", avatar, color: "#d8efac" }}
+                size={64}
+              />
+              <label>
+                Аватар канала
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (f)
+                      try {
+                        setAvatar(await readAvatar(f));
+                      } catch (e) {
+                        setError(errorText(e));
+                      }
+                  }}
+                />
+              </label>
               <label>
                 Название
                 <input
@@ -147,32 +182,6 @@ export function Channels({ user }: { user: User }) {
               </button>
             </form>
           )}
-          <input
-            aria-label="Поиск каналов"
-            placeholder="Найти канал"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          {!channels.length && (
-            <p className="muted">Каналов пока нет. Создание доступно с PLUS.</p>
-          )}
-          {channels
-            .filter((c) =>
-              c.title.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
-            )
-            .map((c) => (
-              <button
-                className="channel-row"
-                key={c.id}
-                onClick={() => setSelected(c.id)}
-              >
-                <strong>{c.title}</strong>
-                <small>
-                  {c.subscribers} подписчиков{" "}
-                  {c.subscribed ? "· Вы подписаны" : ""}
-                </small>
-              </button>
-            ))}
         </>
       ) : (
         <>
@@ -180,15 +189,104 @@ export function Channels({ user }: { user: User }) {
             className="secondary"
             onClick={() => {
               setSelected(null);
+              onBack();
               loadList().catch((e) => setError(errorText(e)));
             }}
           >
-            ← Все каналы
+            ← Сообщения
           </button>
           {channel ? (
             <>
               <header className="channel-heading">
-                <h2>{channel.title}</h2>
+                <div className="channel-toolbar">
+                  <Avatar
+                    user={{
+                      name: channel.title,
+                      avatar: channel.avatar || null,
+                      color: "#d8efac",
+                    }}
+                  />
+                  <h2>{channel.title}</h2>
+                </div>
+                {channel.owner_id === user.id && (
+                  <button
+                    className="secondary"
+                    onClick={() => {
+                      setEditing(!editing);
+                      setTitle(channel.title);
+                      setDescription(channel.description);
+                      setAvatar(channel.avatar || null);
+                    }}
+                  >
+                    Изменить канал
+                  </button>
+                )}
+                {editing && (
+                  <form
+                    className="settings-card"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      act(async () => {
+                        await api("channels/" + channel.id, "PATCH", {
+                          title,
+                          description,
+                          avatar,
+                        });
+                        setEditing(false);
+                        await load(channel.id);
+                        onChoose(channel.id);
+                      });
+                    }}
+                  >
+                    <label>
+                      Название
+                      <input
+                        required
+                        maxLength={80}
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Описание
+                      <textarea
+                        maxLength={500}
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                      />
+                    </label>
+                    <Avatar
+                      user={{ name: title, avatar, color: "#d8efac" }}
+                      size={64}
+                    />
+                    <label>
+                      Аватар канала
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={async (e) => {
+                          const f = e.target.files?.[0];
+                          if (f)
+                            try {
+                              setAvatar(await readAvatar(f));
+                            } catch (e) {
+                              setError(errorText(e));
+                            }
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setAvatar(null)}
+                    >
+                      Убрать аватар
+                    </button>
+                    <button className="primary" disabled={busy}>
+                      Сохранить канал
+                    </button>
+                  </form>
+                )}
                 <p>{channel.description}</p>
                 <small>{channel.subscribers} подписчиков</small>
                 <div className="channel-toolbar">
@@ -255,7 +353,8 @@ export function Channels({ user }: { user: User }) {
                   onSubmit={(e) => {
                     e.preventDefault();
                     act(async () => {
-                      if(!postRequest.current)postRequest.current=crypto.randomUUID();
+                      if (!postRequest.current)
+                        postRequest.current = crypto.randomUUID();
                       const attachments = await uploadFiles(files);
                       await api("channels/" + channel.id + "/posts", "POST", {
                         attachmentIds: attachments.map((f) => f.id),
@@ -263,7 +362,8 @@ export function Channels({ user }: { user: User }) {
                         requestId: postRequest.current,
                       });
                       setBody("");
-                      setFiles([]);postRequest.current=null;
+                      setFiles([]);
+                      postRequest.current = null;
                       await load(channel.id);
                     });
                   }}

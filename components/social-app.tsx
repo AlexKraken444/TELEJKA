@@ -1,5 +1,5 @@
 "use client";
-import {Channels} from "./channels";
+import {Channels,type Channel} from "./channels";
 import {revisionPoll} from '@/lib/poll';
 import {PostTools,RepostCard,EditContent} from "./content-tools";
 import {MobileNavigation} from "./mobile-navigation";
@@ -282,7 +282,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
             </div>
           </>
         )}
-        {tab === "plus" && <><Header title="Подписки" subtitle="Подписка, оформление и приватность"/><div className="plus-intro section-pad"><img className="plan-logo" src={user.plus_active?"/plus.png":"/mini.png"} alt={user.plus_active?"PLUS":"mini"}/><div><h2>{user.plus_active?"TELEJKA PLUS":user.mini_active?"TELEJKA mini":"PLUS и mini"}</h2><p>{user.plus_active?"Настрой подписку под себя.":"mini: приватность и голосовые. PLUS: все возможности и создание каналов."}</p></div><button className="secondary" onClick={()=>setTab("rewards")}>{user.plus_active?"Продлить":"Подключить"}</button></div><PlusSettings userId={user.id} onSaved={setUser}/></>}
+        {tab === "plus" && <><Header title="Подписки" subtitle="Подписка, оформление и приватность"/><PlusSettings userId={user.id} onSaved={setUser}/></>}
         {(tab === "profile" || tab === "plus" || tab === "rewards" || tab === "market") && <nav className="mobile-settings-tabs" aria-label="Настройки аккаунта"><button className={tab==='profile'?'active':''} onClick={()=>setTab('profile')}>Профиль</button><button className={tab==='rewards'?'active':''} onClick={()=>setTab('rewards')}>БАТОНчики</button><button className={tab==='plus'?'active':''} onClick={()=>setTab('plus')}>Подписки</button><button className={tab==='market'?'active':''} onClick={()=>setTab('market')}>Рынок</button></nav>}
         {tab === "profile" && (
           <>
@@ -1032,18 +1032,22 @@ function Chats({
       clearInterval(timer);
     };
   }, []);
-  const [filter,setFilter]=useState<'all'|'direct'|'groups'|'calls'|'channels'>('all');
-  useEffect(()=>{if(new URLSearchParams(location.search).has('channel'))setFilter('channels')},[]);
+  const [filter,setFilter]=useState<'all'|'direct'|'groups'|'channels'|'calls'>('all');
+  const [channelRows,setChannelRows]=useState<Channel[]>([]),[selectedChannel,setSelectedChannel]=useState<string|null>(null);
+  const refreshChannels=()=>api<Channel[]>('channels').then(setChannelRows).catch(e=>setError(errorText(e)));
+  useEffect(()=>{let active=true;const load=()=>{if(!document.hidden)api<Channel[]>('channels').then(rows=>{if(active)setChannelRows(rows)}).catch(()=>{})};load();const t=setInterval(load,30000);const initial=new URLSearchParams(location.search).get('channel');if(initial&&/^[0-9a-f-]{36}$/i.test(initial)){setSelectedChannel(initial);onSelected(initial)}return()=>{active=false;clearInterval(t)}},[]);
+  function chooseChannel(id:string){setSelected(null);setSelectedChannel(id);onSelected(id);refreshChannels()}
+  function closeChannel(){setSelectedChannel(null);onSelected(null);refreshChannels()}
   const current = chats.find((c) => c.id === selected);
   return (
     <>
       <Header
         title="Сообщения"
         action={
-          <button className="secondary" data-studio-action="newChat" onClick={() => setCreating(true)}>
+          <div className="channel-toolbar"><button className="secondary" data-studio-action="newChat" onClick={() => setCreating(true)}>
             <Plus size={18} />
             <span>Новый чат</span>
-          </button>
+          </button>{user.plus_active&&<button className="secondary" onClick={()=>chooseChannel("new")}>Создать канал</button>}</div>
         }
       />
       {error && (
@@ -1051,8 +1055,7 @@ function Chats({
           {error}
         </p>
       )}
-      <div className="channel-toolbar section-pad"><button className="secondary" aria-pressed={filter!=='channels'} onClick={()=>setFilter('all')}>Чаты</button><button className="secondary" aria-pressed={filter==='channels'} onClick={()=>{setSelected(null);onSelected(null);setFilter('channels')}}>Каналы</button></div>
-      {filter==='channels'?<Channels user={user}/>:<div className={`messenger ${selected ? "has-selected" : ""}`}>
+      <div className={`messenger ${(selected||selectedChannel) ? "has-selected" : ""}`}>
         <section className="chat-list">
           <label className="search-field">
             <Search size={17} />
@@ -1063,10 +1066,11 @@ function Chats({
               onChange={(e) => setSearch(e.target.value)}
             />
           </label>
-          <div className="chat-filters" aria-label="Фильтр чатов">{([{key:"all",label:"Все"},{key:"direct",label:"Личные"},{key:"groups",label:"Группы"},{key:"calls",label:"Звонки"}] as const).map(item=><button key={item.key} aria-pressed={filter===item.key} className={filter===item.key?"active":""} onClick={()=>setFilter(item.key)}>{item.label}</button>)}</div>
+          <div className="chat-filters" aria-label="Фильтр чатов">{([{key:"all",label:"Все"},{key:"direct",label:"Личные"},{key:"groups",label:"Группы"},{key:"channels",label:"Каналы"},{key:"calls",label:"Звонки"}] as const).map(item=><button key={item.key} aria-pressed={filter===item.key} className={filter===item.key?"active":""} onClick={()=>setFilter(item.key)}>{item.label}</button>)}</div>
           {filter==="calls"&&<CallHistory onOpen={id=>{setSelected(id);onSelected(id)}}/>}
+          {(filter==='all'||filter==='channels')&&channelRows.filter(c=>c.title.toLowerCase().includes(search.toLowerCase())).map(c=><button className={`chat-item ${selectedChannel===c.id?'selected':''}`} key={c.id} onClick={()=>chooseChannel(c.id)}><Avatar user={{name:c.title,avatar:c.avatar||null,color:'#d8efac'}}/><span><strong>{c.title}</strong><small>Канал · {c.subscribers} подписчиков</small></span></button>)}
           {chats
-            .filter(()=>filter!=="calls")
+            .filter(()=>filter!=="calls"&&filter!=="channels")
             .filter(c=>filter==="all"||(filter==="groups"?c.is_group:!c.is_group))
             .filter((c) =>
               chatName(c, user.id).toLowerCase().includes(search.toLowerCase()),
@@ -1076,7 +1080,7 @@ function Chats({
                 className={`chat-item ${selected === chat.id ? "selected" : ""}`}
                 key={chat.id}
                 onClick={() => {
-                  setSelected(chat.id);
+                  setSelectedChannel(null);setSelected(chat.id);
                   onSelected(chat.id);
                 }}
               >
@@ -1113,7 +1117,7 @@ function Chats({
                 <time className="chat-row-time">{new Date(chat.updated_at).toLocaleDateString()===new Date().toLocaleDateString()?new Date(chat.updated_at).toLocaleTimeString("ru",{hour:"2-digit",minute:"2-digit"}):new Date(chat.updated_at).toLocaleDateString("ru",{day:"numeric",month:"short"})}</time>
               </button>
             ))}
-          {!chats.length && filter!=="calls" && (
+          {!chats.length && !channelRows.length && filter!=="calls" && (
             <Empty
               icon={<MessageCircle size={25} />}
               title="Нет чатов"
@@ -1122,7 +1126,7 @@ function Chats({
           )}
         </section>
         <section className="chat-window">
-          {current ? (
+          {selectedChannel?<Channels key={selectedChannel} user={user} initialSelection={selectedChannel} onBack={closeChannel} onChoose={chooseChannel}/>:current ? (
             <Conversation
               key={current.id}
               chat={current}
@@ -1150,7 +1154,7 @@ function Chats({
             />
           )}
         </section>
-      </div>}
+      </div>
       {creating && (
         <NewChat
           onClose={() => setCreating(false)}

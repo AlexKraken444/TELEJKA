@@ -221,7 +221,7 @@ async function handle(
         avatar: user.avatar,
         color: user.color,
         verified: user.verified,
-        can_manage_verification: canManageVerification(user.id),
+        can_manage_verification: await canManageVerification(user.id),
       });
     }
     const user = await currentUser(route === "me");
@@ -257,7 +257,7 @@ async function handle(
       path[2] === "verification" &&
       req.method === "PATCH"
     ) {
-      if (!canManageVerification(user.id))
+      if (!await canManageVerification(user.id))
         throw new ApiError(
           403,
           "Только владелец TELEJKA может управлять галочками.",

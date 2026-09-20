@@ -1,6 +1,6 @@
 import {channelsApi} from './channels-api';
 import {economyApi} from './economy-api';
-import { VERIFICATION_OWNER_ID } from "./verification";
+import { canManageVerification } from "./verification";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "./db";
@@ -50,7 +50,7 @@ async function walletStatus(userId: string) {
   return {
     ...w,
     balance: Number(w.balance)<=Number.MAX_SAFE_INTEGER?Number(w.balance):w.balance,
-    unlimited: userId === VERIFICATION_OWNER_ID,
+    unlimited: await canManageVerification(userId),
     quest,
     quest_reward: 30,
     plus_price: 1000, mini_price: 150,
@@ -147,6 +147,7 @@ export async function communityApi(
   if ((route === "plus/buy" || route === "mini/buy") && req.method === "POST") {
     const { requestId } = z.object({ requestId: uuid }).strict().parse(input);
     const tier=route.startsWith("mini")?"mini":"plus",price=tier==="mini"?150:1000;
+    const unlimited = await canManageVerification(userId);
     await sql.begin(async (tx) => {
       await tx`INSERT INTO wallets(user_id) VALUES(${userId}) ON CONFLICT DO NOTHING`;
       const [wallet] =
@@ -156,7 +157,7 @@ export async function communityApi(
       if (old) return;
       const [subscription]=await tx`SELECT plus_until>='9999-01-01'::timestamptz permanent FROM users WHERE id=${userId} FOR UPDATE`;
       if(tier==="plus" && subscription.permanent)throw new FeatureError(400,"У тебя уже бессрочная TELEJKA PLUS.");
-      const unlimited = userId === VERIFICATION_OWNER_ID;
+
       if (!unlimited && Number(wallet.balance) < price)
         throw new FeatureError(400, `Нужно ${price} БАТОНчиков.`);
       if (!unlimited)

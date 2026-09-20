@@ -1,10 +1,10 @@
 export const PRIZES = [
  {kind:'baton10',label:'10 БАТОНчиков',rarity:'Частый',icon:'🥖'},
  {kind:'baton30',label:'30 БАТОНчиков',rarity:'Частый',icon:'🥖'},
- {kind:'week',label:'TELEJKA PLUS на неделю',rarity:'Средний',icon:'✦'},
- {kind:'month',label:'TELEJKA PLUS на месяц',rarity:'Средний',icon:'✦'},
- {kind:'year',label:'TELEJKA PLUS на год',rarity:'Редкий',icon:'✦'},
- {kind:'forever',label:'TELEJKA PLUS навсегда',rarity:'Легендарный',icon:'∞'},
+ {kind:'week',label:'TELEJKA mini на неделю',rarity:'Средний',icon:'✦'},
+ {kind:'month',label:'TELEJKA mini на месяц',rarity:'Средний',icon:'✦'},
+ {kind:'year',label:'TELEJKA mini на год',rarity:'Редкий',icon:'✦'},
+ {kind:'forever',label:'TELEJKA mini навсегда',rarity:'Легендарный',icon:'∞'},
  {kind:'bronze',label:'Бронзовая медаль',rarity:'Легендарный',icon:'🥉'},
  {kind:'silver',label:'Серебряная медаль',rarity:'Легендарный',icon:'🥈'},
  {kind:'gold',label:'Золотая медаль',rarity:'???',icon:'🥇'},
@@ -24,4 +24,4 @@ export function pickPrize(stake:number,roll:number):PrizeKind{
  throw new Error('Invalid prize roll');
 }
 export const medalIcons:Record<string,string>={bronze:'🥉',silver:'🥈',gold:'🥇'};
-export function itemLabel(kind:string,seconds?:number){return PRIZES.find(p=>p.kind===kind)?.label||(kind==='time'?`TELEJKA PLUS · ${Math.ceil((seconds||0)/86400)} дн.`:kind)}
+export function itemLabel(kind:string,seconds?:number,tier='mini'){const label=PRIZES.find(p=>p.kind===kind)?.label;return (label?(tier==='plus'?label.replace('mini','PLUS'):label):undefined)||(kind==='time'?`TELEJKA PLUS · ${Math.ceil((seconds||0)/86400)} дн.`:kind)}
