@@ -25,19 +25,21 @@ const clips = (posts: Post[]): Clip[] =>
 
 export function VideoFeed({
   initial,
+  embedded = false,
   fileId,
   user,
   onClose,
   onPerson,
 }: {
-  initial: Post;
-  fileId: string;
+  initial?: Post;
+  embedded?: boolean;
+  fileId?: string;
   user: User;
   onClose: () => void;
   onPerson: (user: User) => void;
 }) {
-  const first = clips([initial]).find((c) => c.file.id === fileId)!;
-  const [items, setItems] = useState<Clip[]>([first]),
+  const first = initial ? clips([initial]).find((c) => c.file.id === fileId) : undefined;
+  const [items, setItems] = useState<Clip[]>(first ? [first] : []),
     [active, setActive] = useState(0),
     [muted, setMuted] = useState(true),
     [error, setError] = useState(""),
@@ -78,12 +80,12 @@ export function VideoFeed({
     alive.current = true;
     const old = document.body.style.overflow;
     const previous = document.activeElement as HTMLElement | null;
-    document.body.style.overflow = "hidden";
+    if (!embedded) document.body.style.overflow = "hidden";
     close.current?.focus();
     void loadMore();
     return () => {
       alive.current = false;
-      document.body.style.overflow = old;
+      if (!embedded) document.body.style.overflow = old;
       previous?.focus();
     };
   }, []);
@@ -107,15 +109,15 @@ export function VideoFeed({
       ),
     );
   }
-  return createPortal(
+  const content = (
     <section
-      className="video-feed-overlay"
-      role="dialog"
-      aria-modal="true"
+      className={`video-feed-overlay ${embedded ? "video-feed-embedded" : ""}`}
+      role={embedded ? "region" : "dialog"}
+      aria-modal={embedded ? undefined : true}
       aria-label="Лента видео"
       onKeyDown={(e) => {
         if ((e.target as HTMLElement).closest(".modal-backdrop")) return;
-        if (e.key === "Tab") {
+        if (e.key === "Tab" && (!embedded || comments)) {
           const scope = comments
             ? e.currentTarget.querySelector(".video-comments")!
             : e.currentTarget;
@@ -157,7 +159,7 @@ export function VideoFeed({
         <button ref={close} onClick={onClose} aria-label="Закрыть ленту видео">
           <X />
         </button>
-        <strong>Видео</strong>
+        <strong>Лента видосиков</strong>
         <button
           onClick={() => setMuted((v) => !v)}
           aria-label={muted ? "Включить звук" : "Выключить звук"}
@@ -225,7 +227,7 @@ export function VideoFeed({
           <ChevronDown />
         </button>
       </div>
-      {active === items.length - 1 && (
+      {(items.length === 0 || active === items.length - 1) && (
         <div className="video-feed-status">
           {loading ? (
             "Загружаем ещё…"
@@ -237,7 +239,7 @@ export function VideoFeed({
           ) : more ? (
             <button onClick={() => void loadMore()}>Загрузить ещё видео</button>
           ) : (
-            <small>Пока это последнее видео</small>
+            <small>{items.length ? "Пока это последнее видео" : "Пока нет видео. Добавь ролик в основную ленту."}</small>
           )}
         </div>
       )}
@@ -263,9 +265,9 @@ export function VideoFeed({
           }}
         />
       )}
-    </section>,
-    document.body,
+    </section>
   );
+  return embedded ? content : createPortal(content, document.body);
 }
 function ClipPlayer({
   file,

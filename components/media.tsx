@@ -219,7 +219,8 @@ function Media({ item,onOpenVideo }: { item: Attachment;onOpenVideo?:(file:Attac
             item.mime.startsWith("video/") ? (
             <video
               src={url}
-              controls
+              controls={!onOpenVideo}
+              onClick={onOpenVideo ? e=>{e.currentTarget.pause();onOpenVideo(item)} : undefined}
               playsInline
               preload="metadata"
               onError={() =>
@@ -229,7 +230,7 @@ function Media({ item,onOpenVideo }: { item: Attachment;onOpenVideo?:(file:Attac
               }
             />
           ) : item.mime.startsWith("audio/") ? <audio src={url} controls preload="metadata" aria-label="Голосовое сообщение"/> : null}
-          {item.mime.startsWith("video/")&&onOpenVideo&&<button className="secondary open-video-feed" type="button" onClick={e=>{e.currentTarget.parentElement?.querySelector("video")?.pause();onOpenVideo(item)}}>▶ Открыть ленту видео</button>}
+          {item.mime.startsWith("video/")&&onOpenVideo&&<button className="secondary open-video-feed" type="button" onClick={e=>{e.currentTarget.parentElement?.querySelector("video")?.pause();onOpenVideo(item)}}>▶ Лента видосиков</button>}
           <a className="text-button" href={url} download={item.name}>
             Скачать {item.name}
           </a>

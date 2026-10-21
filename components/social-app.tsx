@@ -26,7 +26,7 @@ import {
   Reactions,
 } from "./community";
 import { PopularHashtags } from "./popular-hashtags";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowDown,
   ArrowLeft,
@@ -51,6 +51,7 @@ import {
   UserRound,
   X,
   Camera,
+  Clapperboard,
 } from "lucide-react";
 import type { User, Post, Comment, Chat, Message } from "@/lib/types";
 import {
@@ -67,7 +68,8 @@ import {RandomAdvertisement,useAdvertisements,TransferButton,TransferReceipt} fr
 import { FilePicker, uploadFiles, MediaList } from "./media";
 import { EncryptedMessage } from "./encrypted-message";
 import { encryptMessage, type PublicDevice } from "@/lib/crypto-chat";
-type Tab = "market" | "plus" | "rewards" | "feed" | "chats" | "people" | "profile" | "account";
+const OpenVideoContext = createContext<(post: Post, fileId: string) => void>(() => {});
+type Tab = "videos" | "market" | "plus" | "rewards" | "feed" | "chats" | "people" | "profile" | "account";
 export function SocialApp({ initialUser }: { initialUser: User }) {
  const [serviceError,setServiceError]=useState('');useEffect(()=>{const update=(e:Event)=>setServiceError((e as CustomEvent<string>).detail);window.addEventListener('telejka-service-status',update);return()=>window.removeEventListener('telejka-service-status',update)},[]);
  const online=useOnline();const [rightOpen,setRightOpen]=useState(false);
@@ -87,6 +89,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
       document.documentElement.style.removeProperty("--app-height");
     };
   }, []);
+  const [videoStart,setVideoStart]=useState<{post:Post;fileId:string}|null>(null);
   const [viewed, setViewed] = useState<User | null>(null),
     [returnTab, setReturnTab] = useState<Tab>("feed");
   const [user, setUser] = useState(initialUser),
@@ -144,6 +147,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
   }
   const nav = [
     { key: "feed" as const, label: "Лента", icon: Home },
+    { key: "videos" as const, label: "Лента видосиков", icon: Clapperboard },
     { key: "chats" as const, label: "Сообщения", icon: MessageCircle },
     { key: "people" as const, label: "Люди", icon: Users },
     { key: "rewards" as const, label: "БАТОНчики", icon: Sparkles },
@@ -152,7 +156,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     { key: "plus" as const, label: "Подписки", icon: Settings },
   ];
   return (
-    <OnlineContext.Provider value={online}><CallProvider user={user}><StudioRuntime/><MobileNavigation tab={tab} onChange={setTab}/><div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
+    <OpenVideoContext.Provider value={(post,fileId)=>{setVideoStart({post,fileId});setTab("videos");window.scrollTo({top:0})}}><OnlineContext.Provider value={online}><CallProvider user={user}><StudioRuntime/><MobileNavigation tab={tab} onChange={setTab}/><div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
       <PushSync userId={user.id}/><DailyVisit userId={user.id} />
       <Notifications
         userId={user.id}
@@ -234,6 +238,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           </div>
         )}
         {serviceError&&<p className="error service-status" role="status">{serviceError} Повторные запросы временно приостановлены.</p>}{tab === "feed" && <><InstallBanner userId={user.id}/><Feed user={user} onPerson={openProfile} /></>}
+        {tab === "videos" && <VideoFeed embedded initial={videoStart?.post} fileId={videoStart?.fileId} user={user} onClose={()=>{setVideoStart(null);setTab("feed")}} onPerson={openProfile}/>}
         {tab === "account" && viewed && (
           <PublicProfile
             key={viewed.id}
@@ -327,7 +332,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           </button>
         </aside>
       )}
-    </div></CallProvider></OnlineContext.Provider>
+    </div></CallProvider></OnlineContext.Provider></OpenVideoContext.Provider>
   );
 }
 function ArrowRightIcon() {
@@ -587,7 +592,7 @@ function PostCard({
   onChange: () => void;
 }) {
   const [files, setFiles] = useState<File[]>([]);
-  const [videoId,setVideoId]=useState<string|null>(null);
+  const openVideo=useContext(OpenVideoContext);
   const [liked, setLiked] = useState(post.liked),
     [likes, setLikes] = useState(post.likes),
     [open, setOpen] = useState(false),
@@ -650,7 +655,6 @@ function PostCard({
   }
   return (
     <article className="post">
-      {videoId&&<VideoFeed initial={post} fileId={videoId} user={user} onClose={()=>{setVideoId(null);onChange()}} onPerson={person=>{setVideoId(null);onPerson(person)}}/>}
       <button
         className="avatar-link"
         onClick={() => onPerson(post.author)}
@@ -685,7 +689,7 @@ function PostCard({
         </div>
         <>{post.poll_id?<InlinePoll id={post.poll_id} user={user}/>:<p className="post-body">{post.body}</p>}</>
         {post.is_repost&&<RepostCard id={post.repost_id}/>}
-        <MediaList items={post.attachments} onOpenVideo={file=>setVideoId(file.id)}/>{post.edited_at&&<small className="edited-label">отредактировано</small>}<PostTools post={post} userId={user.id} onChange={onChange}/>
+        <MediaList items={post.attachments} onOpenVideo={file=>openVideo(post,file.id)}/>{post.edited_at&&<small className="edited-label">отредактировано</small>}<PostTools post={post} userId={user.id} onChange={onChange}/>
         <Reactions
           path={"posts/" + post.id}
           initial={post.reactions}
