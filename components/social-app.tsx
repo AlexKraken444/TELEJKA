@@ -1,4 +1,5 @@
 "use client";
+import {VideoFeed} from "./video-feed";
 import {Channels,type Channel} from "./channels";
 import {revisionPoll} from '@/lib/poll';
 import {PostTools,RepostCard,EditContent} from "./content-tools";
@@ -586,6 +587,7 @@ function PostCard({
   onChange: () => void;
 }) {
   const [files, setFiles] = useState<File[]>([]);
+  const [videoId,setVideoId]=useState<string|null>(null);
   const [liked, setLiked] = useState(post.liked),
     [likes, setLikes] = useState(post.likes),
     [open, setOpen] = useState(false),
@@ -648,6 +650,7 @@ function PostCard({
   }
   return (
     <article className="post">
+      {videoId&&<VideoFeed initial={post} fileId={videoId} user={user} onClose={()=>{setVideoId(null);onChange()}} onPerson={person=>{setVideoId(null);onPerson(person)}}/>}
       <button
         className="avatar-link"
         onClick={() => onPerson(post.author)}
@@ -682,7 +685,7 @@ function PostCard({
         </div>
         <>{post.poll_id?<InlinePoll id={post.poll_id} user={user}/>:<p className="post-body">{post.body}</p>}</>
         {post.is_repost&&<RepostCard id={post.repost_id}/>}
-        <MediaList items={post.attachments} />{post.edited_at&&<small className="edited-label">отредактировано</small>}<PostTools post={post} userId={user.id} onChange={onChange}/>
+        <MediaList items={post.attachments} onOpenVideo={file=>setVideoId(file.id)}/>{post.edited_at&&<small className="edited-label">отредактировано</small>}<PostTools post={post} userId={user.id} onChange={onChange}/>
         <Reactions
           path={"posts/" + post.id}
           initial={post.reactions}

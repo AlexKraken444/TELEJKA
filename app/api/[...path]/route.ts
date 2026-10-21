@@ -308,10 +308,11 @@ async function handle(
         Math.max(0, Number(req.nextUrl.searchParams.get("offset")) || 0),
       );
       const mine = req.nextUrl.searchParams.get("mine") === "true";
+      const videosOnly=req.nextUrl.searchParams.get("videos")==="true";
       const authorParam = req.nextUrl.searchParams.get("author");
       const author = authorParam ? idSchema.parse(authorParam) : null;
       return json(
-        await sql`SELECT p.*, (SELECT id FROM polls WHERE post_id=p.id) poll_id, telejka_post_reactions(p.id,${user.id}::uuid) AS reactions, telejka_user(u.id,${user.id}::uuid) AS author, (SELECT count(*)::int FROM likes l WHERE l.post_id = p.id) AS likes, (SELECT count(*)::int FROM comments c WHERE c.post_id = p.id) AS comments, EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ${user.id}) AS liked FROM posts p JOIN users u ON u.id = p.user_id WHERE telejka_can_view(p.user_id,${user.id}::uuid) AND (${!mine} OR p.user_id = ${user.id}) AND (${author}::uuid IS NULL OR p.user_id=${author}::uuid) ORDER BY p.created_at DESC, p.id DESC LIMIT 20 OFFSET ${offset}`,
+        await sql`SELECT p.*, (SELECT id FROM polls WHERE post_id=p.id) poll_id, telejka_post_reactions(p.id,${user.id}::uuid) AS reactions, telejka_user(u.id,${user.id}::uuid) AS author, (SELECT count(*)::int FROM likes l WHERE l.post_id = p.id) AS likes, (SELECT count(*)::int FROM comments c WHERE c.post_id = p.id) AS comments, EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ${user.id}) AS liked FROM posts p JOIN users u ON u.id = p.user_id WHERE telejka_can_view(p.user_id,${user.id}::uuid) AND (${!videosOnly} OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.attachments) a WHERE a->>'mime' LIKE 'video/%')) AND (${!mine} OR p.user_id = ${user.id}) AND (${author}::uuid IS NULL OR p.user_id=${author}::uuid) ORDER BY p.created_at DESC, p.id DESC LIMIT 20 OFFSET ${offset}`,
       );
     }
     if (route === "posts" && req.method === "POST") {

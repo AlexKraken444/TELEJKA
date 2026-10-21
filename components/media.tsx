@@ -139,11 +139,11 @@ export async function uploadFiles(
   }
   return attachments;
 }
-export function MediaList({ items = [] }: { items?: Attachment[] }) {
+export function MediaList({ items = [],onOpenVideo }: { items?: Attachment[];onOpenVideo?:(file:Attachment)=>void }) {
   return (
     <div className="media-list">
       {items.slice(0, 4).map((item) => (
-        <Media key={item.id} item={item} />
+        <Media key={item.id} item={item} onOpenVideo={onOpenVideo}/>
       ))}
     </div>
   );
@@ -160,7 +160,7 @@ export async function loadAttachment(item:Attachment):Promise<Blob>{
  while(cacheSize+blob.size>32*1024*1024&&attachmentCache.size){const first=attachmentCache.keys().next().value!;cacheSize-=attachmentCache.get(first)!.size;attachmentCache.delete(first)}
  if(blob.size<=32*1024*1024){cacheSize-=attachmentCache.get(key)?.size||0;attachmentCache.set(key,blob);cacheSize+=blob.size}return blob;
 }
-function Media({ item }: { item: Attachment }) {
+function Media({ item,onOpenVideo }: { item: Attachment;onOpenVideo?:(file:Attachment)=>void }) {
   const root = useRef<HTMLDivElement>(null),
     alive = useRef(true),
     loading = useRef(false);
@@ -229,6 +229,7 @@ function Media({ item }: { item: Attachment }) {
               }
             />
           ) : item.mime.startsWith("audio/") ? <audio src={url} controls preload="metadata" aria-label="Голосовое сообщение"/> : null}
+          {item.mime.startsWith("video/")&&onOpenVideo&&<button className="secondary open-video-feed" type="button" onClick={e=>{e.currentTarget.parentElement?.querySelector("video")?.pause();onOpenVideo(item)}}>▶ Открыть ленту видео</button>}
           <a className="text-button" href={url} download={item.name}>
             Скачать {item.name}
           </a>

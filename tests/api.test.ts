@@ -1,3 +1,4 @@
+import {videoDiscountsFlow} from './video-discounts-flow';
 import {commerceFlow} from './commerce-flow';
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -34,7 +35,7 @@ test(
     let output = "";
     const server = spawn(
       process.execPath,
-      ["node_modules/next/dist/bin/next", "start", "-p", "3101"],
+      ["node_modules/next/dist/bin/next", ...(process.env.TELEJKA_TEST_DEV ? ["dev", "--webpack"] : ["start"]), "-p", "3101", "-H", "localhost"],
       {
         env: {
           ...process.env,
@@ -43,7 +44,7 @@ test(
           POSTGRES_URL_NON_POOLING: "",
           NEON_DATABASE_URL:
             "postgresql://postgres:postgres@127.0.0.1:5434/postgres",
-          NODE_ENV: "production",
+          NODE_ENV: process.env.TELEJKA_TEST_DEV ? "development" : "production",
           TELEJKA_DB_POOL_SIZE: "1",
         },
         stdio: ["ignore", "pipe", "pipe"],
@@ -68,7 +69,7 @@ test(
           ready = true;
           break;
         }
-      } catch {}
+      } catch (error) { if (i === 59) output += String(error); }
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
     assert.ok(ready, output);
@@ -112,7 +113,7 @@ test(
       });
       assert.equal(res.status, 201, JSON.stringify(res.body));
       assert.match(res.cookie, /HttpOnly/i);
-      assert.match(res.cookie, /Secure/i);
+      if (!process.env.TELEJKA_TEST_DEV) assert.match(res.cookie, /Secure/i);
       assert.match(res.cookie, /Max-Age=31536000/i);
       accounts.push({ id: res.body.id, cookie: res.cookie.split(";")[0] });
     }
@@ -1484,6 +1485,7 @@ test(
     assert.equal((await request('me','GET',undefined,bob.cookie)).body.can_manage_verification,false);
     assert.equal((await request(channelPath,'DELETE',undefined,bob.cookie)).status,403);
     assert.equal((await request(channelPath,'DELETE',undefined,alice.cookie)).status,200);
+    await videoDiscountsFlow({db,request,alice,bob});
     await commerceFlow({db,request,alice,bob,vera,direct,changedEnvelope,origin});
     await request("auth/logout", "POST", {}, alice.cookie);
     assert.equal((await db.query('SELECT * FROM push_subscriptions')).rows.length,0);

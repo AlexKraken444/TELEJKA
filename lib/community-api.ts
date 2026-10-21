@@ -1,3 +1,4 @@
+import {discountStatus,spinDiscount} from './subscription-discount';
 import {commerceApi} from './commerce-api';
 import {channelsApi} from './channels-api';
 import {economyApi} from './economy-api';
@@ -53,6 +54,7 @@ async function walletStatus(userId: string) {
     balance: Number(w.balance)<=Number.MAX_SAFE_INTEGER?Number(w.balance):w.balance,
     unlimited: await canManageVerification(userId),
     quest,
+    discount: await discountStatus(userId),
     quest_reward: 30,
     plus_price: 1000, mini_price: 150,
   };
@@ -111,6 +113,8 @@ export async function communityApi(
     });
     return json({ ok: true });
   }
+  if(route === "subscriptions/discount" && req.method === "GET")return json(await discountStatus(userId));
+  if(route === "subscriptions/discount/spin" && req.method === "POST")return json(await spinDiscount(userId));
   if (route === "rewards" && req.method === "GET") {
     await sql`INSERT INTO wallets(user_id) VALUES(${userId}) ON CONFLICT DO NOTHING`;
     await sql`SELECT telejka_quest(${userId}::uuid)`;
@@ -148,7 +152,7 @@ export async function communityApi(
   }
   if ((route === "plus/buy" || route === "mini/buy") && req.method === "POST") {
     const { requestId } = z.object({ requestId: uuid }).strict().parse(input);
-    const tier=route.startsWith("mini")?"mini":"plus",price=tier==="mini"?150:1000;
+    const tier=route.startsWith("mini")?"mini":"plus",basePrice=tier==="mini"?150:1000;
     const unlimited = await canManageVerification(userId);
     await sql.begin(async (tx) => {
       await tx`INSERT INTO wallets(user_id) VALUES(${userId}) ON CONFLICT DO NOTHING`;
@@ -160,6 +164,9 @@ export async function communityApi(
       const [subscription]=await tx`SELECT plus_until>='9999-01-01'::timestamptz permanent FROM users WHERE id=${userId} FOR UPDATE`;
       if(tier==="plus" && subscription.permanent)throw new FeatureError(400,"У тебя уже бессрочная TELEJKA PLUS.");
 
+      const [discount]=await tx`SELECT percent FROM subscription_discounts WHERE user_id=${userId} AND used_at IS NULL`;
+      const purchased=(await tx`SELECT 1 FROM baton_ledger WHERE user_id=${userId} AND ref ~ '^(plus|mini):' LIMIT 1`).length>0;
+      const price=Math.ceil(basePrice*(100-(!purchased&&discount?discount.percent:0))/100);
       if (!unlimited && Number(wallet.balance) < price)
         throw new FeatureError(400, `Нужно ${price} БАТОНчиков.`);
       if (!unlimited)
@@ -167,6 +174,7 @@ export async function communityApi(
       if(tier==='mini')await tx`UPDATE users SET mini_until=greatest(COALESCE(mini_until,now()),now())+interval '1 month' WHERE id=${userId}`;
       else await tx`UPDATE users SET plus_until=greatest(COALESCE(plus_until,now()),now())+interval '1 month' WHERE id=${userId}`;
       await tx`INSERT INTO baton_ledger(user_id,ref,amount) VALUES(${userId},${tier+":" + requestId},${unlimited ? 0 : -price})`;
+      await tx`UPDATE subscription_discounts SET used_at=now() WHERE user_id=${userId} AND used_at IS NULL`;
     });
     return json(await walletStatus(userId));
   }

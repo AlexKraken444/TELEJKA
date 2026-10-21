@@ -1,10 +1,12 @@
 "use client";
+import {DiscountWheel,type Discount} from './discount-wheel';
 import {PrizeReel} from './economy';
 import {ProfileMusic} from "./profile-music";
 import { useEffect, useRef, useState } from "react";
 import type { User, Reaction, Chat } from "@/lib/types";
 import { api, errorText, UserName } from "./shared";
 type Wallet = {
+  discount:Discount;
   balance: number|string;
   unlimited?: boolean;
   streak: number;
@@ -42,6 +44,7 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
   const [wallet, setWallet] = useState<Wallet | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const [wheelBusy,setWheelBusy]=useState(false);
   const request = useRef<string | null>(null);
   useEffect(() => {
     let active = true;
@@ -63,7 +66,7 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
     };
   }, []);
   async function action(buy: boolean, tier: "plus"|"mini"="plus") {
-    if (busy) return;
+    if (busy || wheelBusy) return;
     setBusy(true);
     setError("");
     try {
@@ -83,6 +86,8 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
       setBusy(false);
     }
   }
+  const discountPercent=wallet?.discount?.percent||0;
+  const miniPrice=Math.ceil(150*(100-discountPercent)/100),plusPrice=Math.ceil(1000*(100-discountPercent)/100);
   return (
     <section className="section-pad community">
       <h1>БАТОНчики</h1>
@@ -139,9 +144,10 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
             </button>
           </div>
           <PrizeReel onUpdated={onUpdated}/><button className="secondary" onClick={()=>window.dispatchEvent(new CustomEvent("studio-tab",{detail:"market"}))}>Рынок и мой инвентарь →</button>
-          <div className="reward-card"><img className="plan-logo" src="/mini.png" alt="mini"/><h2>TELEJKA mini</h2><p>150 БАТОНчиков на месяц</p><p>Закрытый аккаунт и голосовые сообщения.</p>{wallet.mini_active&&<p>До {new Date(wallet.mini_until!).toLocaleDateString('ru')}</p>}<button className="primary" disabled={busy||(!wallet.unlimited&&Number(wallet.balance)<150)} onClick={()=>action(true,'mini')}>{wallet.mini_active?'Продлить mini':'Купить mini'}</button></div><div className="reward-card plus-card">
+          <DiscountWheel onBusy={setWheelBusy} discount={wallet.discount} onResult={discount=>setWallet(current=>current?{...current,discount}:current)}/>
+          <div className="reward-card"><img className="plan-logo" src="/mini.png" alt="mini"/><h2>TELEJKA mini</h2><p>{miniPrice} БАТОНчиков на месяц{discountPercent>0&&<> · скидка {discountPercent}%</>}</p><p>Закрытый аккаунт и голосовые сообщения.</p>{wallet.mini_active&&<p>До {new Date(wallet.mini_until!).toLocaleDateString('ru')}</p>}<button className="primary" disabled={busy||wheelBusy||(!wallet.unlimited&&Number(wallet.balance)<miniPrice)} onClick={()=>action(true,'mini')}>{wallet.mini_active?'Продлить mini':'Купить mini'}</button></div><div className="reward-card plus-card">
             <img className="plan-logo" src="/plus.png" alt="PLUS"/><h2>TELEJKA PLUS</h2>
-            <p>1000 БАТОНчиков на месяц</p>
+            <p>{plusPrice} БАТОНчиков на месяц{discountPercent>0&&<> · скидка {discountPercent}%</>}</p>
             <p>
               Каналы, голосовые, музыка в профиле, 10 реакций · до 3 на публикацию.
               <br />
@@ -157,7 +163,7 @@ export function Rewards({ onUpdated }: { onUpdated: (u: User) => void }) {
             )}
             <button
               className="primary"
-              disabled={busy || Boolean(wallet.plus_until?.startsWith("9999")) || (!wallet.unlimited && Number(wallet.balance) < 1000)}
+              disabled={busy || wheelBusy || Boolean(wallet.plus_until?.startsWith("9999")) || (!wallet.unlimited && Number(wallet.balance) < plusPrice)}
               onClick={() => action(true)}
             >
               {wallet.plus_until?.startsWith("9999")?"Бессрочная подписка":wallet.plus_active ? "Продлить на месяц" : "Купить TELEJKA PLUS"}
