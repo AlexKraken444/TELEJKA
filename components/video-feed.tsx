@@ -288,8 +288,7 @@ function ClipPlayer({
 }) {
   const video = useRef<HTMLVideoElement>(null),
     [url, setUrl] = useState(""),
-    [error, setError] = useState(""),
-    [blocked, setBlocked] = useState(false);
+    [error, setError] = useState("");
   useVideoAmbient(video,url);
   useEffect(() => {
     let live = true,
@@ -317,14 +316,13 @@ function ClipPlayer({
     else
       void el
         .play()
-        .then(() => setBlocked(false))
-        .catch(() => setBlocked(true));
+        .catch(() => {});
   }, [url, paused, muted]);
   useEffect(() => {
     const visibility = () => {
       if (document.hidden) video.current?.pause();
       else if (!paused)
-        void video.current?.play().catch(() => setBlocked(true));
+        void video.current?.play().catch(() => {});
     };
     document.addEventListener("visibilitychange", visibility);
     return () => document.removeEventListener("visibilitychange", visibility);
@@ -358,19 +356,6 @@ function ClipPlayer({
             Скачать видео
           </a>
         </p>
-      )}
-      {blocked && url && (
-        <button
-          className="video-play"
-          onClick={() =>
-            void video.current
-              ?.play()
-              .then(() => setBlocked(false))
-              .catch(() => setError("Нажми кнопку воспроизведения в плеере."))
-          }
-        >
-          ▶ Смотреть
-        </button>
       )}
     </>
   );
