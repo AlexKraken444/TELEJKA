@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Moon, Sun, X } from "lucide-react";
+import { X } from "lucide-react";
+import { halloweenActive } from "./seasonal-theme";
 import { api } from "./shared";
 import { identityFor } from "@/lib/crypto-chat";
 export async function registerDevice(userId: string) {
@@ -12,32 +13,9 @@ export async function registerDevice(userId: string) {
   return identity;
 }
 export function ThemeToggle() {
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    const sync=()=>setDark(document.documentElement.dataset.theme === "dark");
-    sync();
-    const observer=new MutationObserver(sync);
-    observer.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-    return()=>observer.disconnect();
-  }, []);
-  return (
-    <button
-      type="button"
-      className="secondary theme-toggle"
-      aria-label={dark ? "Светлая тема" : "Тёмная тема"}
-      onClick={() => {
-        const value = !dark;
-        setDark(value);
-        document.documentElement.dataset.theme = value ? "dark" : "light";
-        try {
-          localStorage.setItem("telejka-theme", value ? "dark" : "light");
-        } catch {}
-      }}
-    >
-      {dark ? <Sun size={18} /> : <Moon size={18} />}
-      <span>{dark ? "Светлая тема" : "Тёмная тема"}</span>
-    </button>
-  );
+ const [theme,setTheme]=useState('light'),[season,setSeason]=useState(false);
+ useEffect(()=>{const sync=()=>{setTheme(document.documentElement.dataset.theme||'light');setSeason(halloweenActive(Date.now()))};sync();const observer=new MutationObserver(sync);observer.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});const timer=setInterval(sync,1000);return()=>{observer.disconnect();clearInterval(timer)}},[]);
+ return <label className="theme-picker"><span>Тема</span><select aria-label="Тема оформления" value={theme} onChange={e=>{const value=e.target.value;setTheme(value);document.documentElement.dataset.theme=value;try{localStorage.setItem('telejka-theme',value)}catch{}}}><option value="light">Светлая</option><option value="dark">Тёмная</option>{season&&<option value="halloween">Хэллоуин</option>}</select></label>;
 }
 type Notice = { id: string; conversation_id: string; channel_id?: string; name: string };
 export function Notifications({

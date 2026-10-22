@@ -19,7 +19,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{document.documentElement.dataset.theme=localStorage.getItem('telejka-theme')==='dark'?'dark':'light'}catch{document.documentElement.dataset.theme='light'}",
+              "try{const t=localStorage.getItem('telejka-theme');document.documentElement.dataset.theme=t==='dark'?'dark':t==='halloween'&&Date.now()<Date.parse('2026-11-01T00:00:00+03:00')?'halloween':'light';document.documentElement.dataset.season=document.documentElement.dataset.theme==='halloween'?'halloween':''}catch{document.documentElement.dataset.theme='light'}",
           }}
         />
       </head>

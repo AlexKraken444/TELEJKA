@@ -3277,11 +3277,9 @@ html:root:root body .chat-filters{overflow-x:auto;flex-wrap:nowrap;max-width:100
 .stream-ended{display:grid;place-items:center;height:100%;margin:0;color:white;font-size:22px}
 
 /* Seasonal palette expires at midnight Moscow time on November 1, 2026. */
-.halloween-decoration{display:none}
 html[data-season="halloween"]{--green:#ffc078;--deep:#843e14;--bg:#fff6e9;--ink:#382313;--muted:#806a59;--line:#d6ac81}
 html[data-season="halloween"][data-theme="dark"]{--green:#f5ac60;--deep:#ffbf7e;--bg:#1c151d;--ink:#fff1df;--muted:#c5aa99;--line:#644333}
 html[data-season="halloween"] body{background:radial-gradient(ellipse at 10% 15%,#f6ac6655,transparent 55%),radial-gradient(ellipse at 90% 80%,#8966aa33,transparent 55%),var(--bg)!important}
-html[data-season="halloween"] .halloween-decoration{display:flex;position:fixed;inset:0;pointer-events:none;z-index:0;justify-content:space-between;align-items:center;padding:5vw;opacity:.16;font-size:clamp(70px,12vw,180px)}
 html[data-season="halloween"] :is(.nav-item.active,.chat-filters button.active,.feed-tabs button.active){background:linear-gradient(135deg,#f7b46b88,#df8d4744)!important}
 html[data-season="halloween"] #telejka-mobile-navigation button[aria-current="page"]{background:#f7b46b88!important}
 @media(max-width:900px){html:root:root body #telejka-mobile-navigation{grid-template-columns:repeat(5,minmax(0,1fr))}}
@@ -3291,3 +3289,16 @@ html:root:root[data-season="halloween"][data-theme="dark"]{--green:#f5ac60;--dee
 html:root:root[data-season="halloween"] body:before{background-image:url('/grain.svg'),radial-gradient(ellipse at 15% 20%,#f6bd7e,transparent 65%),linear-gradient(135deg,#fff0d9,#d8b4b1);background-size:120px 120px,cover,cover}
 html:root:root[data-season="halloween"][data-theme="dark"] body:before{background-image:url('/grain.svg'),radial-gradient(ellipse at 15% 20%,#673b29,transparent 65%),linear-gradient(135deg,#1b131e,#302035)}
 html:root:root[data-season="halloween"] body #telejka-mobile-navigation button[aria-current="page"]{background:#f7b46b66!important}
+
+.theme-picker{display:flex;align-items:center;gap:12px;max-width:100%;padding:10px 14px;color:var(--ink);font-size:14px}.theme-picker select{min-width:0;max-width:160px;border:1px solid var(--line);border-radius:14px;padding:10px 28px 10px 12px;background:var(--bg);color:var(--ink);font:inherit;cursor:pointer}
+@media(max-width:700px){.mobile-brand .theme-picker{padding:0;gap:4px}.mobile-brand .theme-picker>span{display:none}.theme-picker select{max-width:125px;font-size:13px}}
+html:root:root[data-theme="halloween"]{color-scheme:light;--bg:#fff2e2;--ink:#382211;--muted:#74523b;--green:#efad69;--deep:#763b15;--line:#b77c474d;--button-tint:255 214 171;--surface-edge:160 90 40;--surface-shadow:73 34 14;--surface-light:255 244 227;--glass:#ffe3bf66;--glass-strong:#ffe3bfaa}
+html:root:root[data-theme="halloween"] body :is(button,summary,.message-attach,.file-picker-label,.file-picker>label){border-color:#9c552c55!important;color:var(--ink)!important}
+html:root:root[data-theme="halloween"] body :is(button.active,button[aria-pressed="true"],button.primary,.nav-item.active){background-color:rgb(232 138 53 / calc(.25 + var(--button-fill)*.6))!important;color:#42200d!important}
+html:root:root[data-theme="halloween"] body :is(input,textarea,select){color:var(--ink);accent-color:#b7591e;border-color:var(--line)}
+html:root:root[data-theme="halloween"] body :is(input,textarea)::placeholder{color:#795a44;opacity:1}
+html:root:root[data-theme="halloween"] body :is(button,summary,input,textarea,select):focus-visible{outline-color:#ab511a}
+html:root:root[data-theme="halloween"] body :is(.sidebar,.rightbar,.page-header,.mobile-brand,.conversation-heading,.message-form,.settings-card,.modal,.reward-card,.feed-tabs,.composer,.post,.profile-form,.public-profile,.message,.glass-panel,.notification){color:var(--ink);border-color:var(--line)}
+html:root:root[data-theme="halloween"] body .video-feed-overlay{--ink:#fff1df;--muted:#e7cdb8;color:#fff1df}
+html:root:root[data-theme="halloween"] body .video-feed-overlay :is(button,input){color:#fff1df!important}
+html:root:root[data-theme="halloween"] body .video-comments{background:#35241c;color:#fff1df}
