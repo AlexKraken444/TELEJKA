@@ -1,3 +1,4 @@
+import {streamApi} from "./stream-api";
 import {discountStatus,spinDiscount} from './subscription-discount';
 import {commerceApi} from './commerce-api';
 import {channelsApi} from './channels-api';
@@ -65,6 +66,7 @@ export async function communityApi(
   input: Record<string, unknown>,
   userId: string,
 ): Promise<Response | undefined> {
+  const stream=await streamApi(req,path,input,userId);if(stream)return stream;
   const commerce=await commerceApi(req,path,input,userId);if(commerce)return commerce;
   const channel=await channelsApi(req,path,input,userId);if(channel)return channel;
   const economy=await economyApi(req,path,input,userId);if(economy)return economy;

@@ -1,3 +1,4 @@
+import {streamsFlow} from "./streams-flow";
 import {videoDiscountsFlow} from './video-discounts-flow';
 import {commerceFlow} from './commerce-flow';
 import { test } from "node:test";
@@ -1485,6 +1486,7 @@ test(
     assert.equal((await request('me','GET',undefined,bob.cookie)).body.can_manage_verification,false);
     assert.equal((await request(channelPath,'DELETE',undefined,bob.cookie)).status,403);
     assert.equal((await request(channelPath,'DELETE',undefined,alice.cookie)).status,200);
+    await streamsFlow({db,request,alice,bob,vera});
     await videoDiscountsFlow({db,request,alice,bob});
     await commerceFlow({db,request,alice,bob,vera,direct,changedEnvelope,origin});
     await request("auth/logout", "POST", {}, alice.cookie);

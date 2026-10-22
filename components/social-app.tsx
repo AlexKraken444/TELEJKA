@@ -1,4 +1,5 @@
 "use client";
+import {Streams} from "./streams";
 import {VideoFeed} from "./video-feed";
 import {Channels,type Channel} from "./channels";
 import {revisionPoll} from '@/lib/poll';
@@ -52,6 +53,7 @@ import {
   X,
   Camera,
   Clapperboard,
+  Radio,
 } from "lucide-react";
 import type { User, Post, Comment, Chat, Message } from "@/lib/types";
 import {
@@ -69,7 +71,7 @@ import { FilePicker, uploadFiles, MediaList } from "./media";
 import { EncryptedMessage } from "./encrypted-message";
 import { encryptMessage, type PublicDevice } from "@/lib/crypto-chat";
 const OpenVideoContext = createContext<(post: Post, fileId: string) => void>(() => {});
-type Tab = "videos" | "market" | "plus" | "rewards" | "feed" | "chats" | "people" | "profile" | "account";
+type Tab = "streams" | "videos" | "market" | "plus" | "rewards" | "feed" | "chats" | "people" | "profile" | "account";
 export function SocialApp({ initialUser }: { initialUser: User }) {
  const [serviceError,setServiceError]=useState('');useEffect(()=>{const update=(e:Event)=>setServiceError((e as CustomEvent<string>).detail);window.addEventListener('telejka-service-status',update);return()=>window.removeEventListener('telejka-service-status',update)},[]);
  const online=useOnline();const [rightOpen,setRightOpen]=useState(false);
@@ -148,6 +150,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
   const nav = [
     { key: "feed" as const, label: "Лента", icon: Home },
     { key: "videos" as const, label: "Лента видосиков", icon: Clapperboard },
+    { key: "streams" as const, label: "Стримы", icon: Radio },
     { key: "chats" as const, label: "Сообщения", icon: MessageCircle },
     { key: "people" as const, label: "Люди", icon: Users },
     { key: "rewards" as const, label: "БАТОНчики", icon: Sparkles },
@@ -238,6 +241,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           </div>
         )}
         {serviceError&&<p className="error service-status" role="status">{serviceError} Повторные запросы временно приостановлены.</p>}{tab === "feed" && <><InstallBanner userId={user.id}/><Feed user={user} onPerson={openProfile} /></>}
+        {tab === "streams" && <Streams/>}
         {tab === "videos" && <VideoFeed embedded initial={videoStart?.post} fileId={videoStart?.fileId} user={user} onClose={()=>{setVideoStart(null);setTab("feed")}} onPerson={openProfile}/>}
         {tab === "account" && viewed && (
           <PublicProfile
