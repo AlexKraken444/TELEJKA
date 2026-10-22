@@ -1,4 +1,5 @@
 "use client";
+import {useVideoAmbient} from "./use-video-ambient";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Paperclip, X } from "lucide-react";
 import { api, errorText } from "./shared";
@@ -167,6 +168,7 @@ async function fetchAttachment(item:Attachment):Promise<Blob>{
  if(blob.size<=32*1024*1024){cacheSize-=attachmentCache.get(key)?.size||0;attachmentCache.set(key,blob);cacheSize+=blob.size}return blob;
 }
 function Media({ item,onOpenVideo }: { item: Attachment;onOpenVideo?:(file:Attachment)=>void }) {
+  const video = useRef<HTMLVideoElement>(null);
   const root = useRef<HTMLDivElement>(null),
     alive = useRef(true),
     loading = useRef(false);
@@ -180,6 +182,7 @@ function Media({ item,onOpenVideo }: { item: Attachment;onOpenVideo?:(file:Attac
     },
     [url],
   );
+  useVideoAmbient(video,url);
   const load = useCallback(async () => {
     if (loading.current) return;
     loading.current = true;
@@ -224,6 +227,7 @@ function Media({ item,onOpenVideo }: { item: Attachment;onOpenVideo?:(file:Attac
           ) : publicTypes.includes(item.mime) &&
             item.mime.startsWith("video/") ? (
             <video
+              ref={video}
               src={url}
               controls={!onOpenVideo}
               onClick={onOpenVideo ? e=>{e.currentTarget.pause();onOpenVideo(item)} : undefined}

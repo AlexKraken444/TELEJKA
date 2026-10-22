@@ -141,7 +141,7 @@ export function Channels({
               }}
             >
               <Avatar
-                user={{ name: title || "Канал", avatar, color: "#d8efac" }}
+                user={{ name: title || "Канал", avatar, color: "var(--green)" }}
                 size={64}
               />
               <label>
@@ -203,7 +203,7 @@ export function Channels({
                     user={{
                       name: channel.title,
                       avatar: channel.avatar || null,
-                      color: "#d8efac",
+                      color: "var(--green)",
                     }}
                   />
                   <h2>{channel.title}</h2>
@@ -256,7 +256,7 @@ export function Channels({
                       />
                     </label>
                     <Avatar
-                      user={{ name: title, avatar, color: "#d8efac" }}
+                      user={{ name: title, avatar, color: "var(--green)" }}
                       size={64}
                     />
                     <label>

@@ -1,4 +1,5 @@
 "use client";
+import {useVideoAmbient} from "./use-video-ambient";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -289,6 +290,7 @@ function ClipPlayer({
     [url, setUrl] = useState(""),
     [error, setError] = useState(""),
     [blocked, setBlocked] = useState(false);
+  useVideoAmbient(video,url);
   useEffect(() => {
     let live = true,
       object = "";

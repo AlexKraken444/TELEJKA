@@ -65,7 +65,7 @@ export function AuthScreen() {
               <div className="avatar-field">
                 <label className="upload-avatar">
                   <Avatar
-                    user={{ name: name || "Т", avatar, color: "#d8efac" }}
+                    user={{ name: name || "Т", avatar, color: "var(--green)" }}
                     size={64}
                   />
                   <span className="camera-badge">

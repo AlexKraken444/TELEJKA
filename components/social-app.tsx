@@ -1083,7 +1083,7 @@ function Chats({
             />
           </label>
           <div className="chat-filters" aria-label="Фильтр чатов">{([{key:"all",label:"Все"},{key:"direct",label:"Личные"},{key:"groups",label:"Группы"},{key:"channels",label:"Каналы"}] as const).map(item=><button key={item.key} aria-pressed={filter===item.key} className={filter===item.key?"active":""} onClick={()=>setFilter(item.key)}>{item.label}</button>)}</div>
-          {(filter==='all'||filter==='channels')&&channelRows.filter(c=>c.title.toLowerCase().includes(search.toLowerCase())).map(c=><button className={`chat-item ${selectedChannel===c.id?'selected':''}`} key={c.id} onClick={()=>chooseChannel(c.id)}><Avatar user={{name:c.title,avatar:c.avatar||null,color:'#d8efac'}}/><span><strong>{c.title}</strong><small>Канал · {c.subscribers} подписчиков</small></span></button>)}
+          {(filter==='all'||filter==='channels')&&channelRows.filter(c=>c.title.toLowerCase().includes(search.toLowerCase())).map(c=><button className={`chat-item ${selectedChannel===c.id?'selected':''}`} key={c.id} onClick={()=>chooseChannel(c.id)}><Avatar user={{name:c.title,avatar:c.avatar||null,color:'var(--green)'}}/><span><strong>{c.title}</strong><small>Канал · {c.subscribers} подписчиков</small></span></button>)}
           {chats
             .filter(()=>filter!=="channels")
             .filter(c=>filter==="all"||(filter==="groups"?c.is_group:!c.is_group))
