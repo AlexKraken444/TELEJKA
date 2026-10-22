@@ -1,5 +1,5 @@
 "use client";
-import {Streams} from "./streams";
+
 import {VideoFeed} from "./video-feed";
 import {Channels,type Channel} from "./channels";
 import {revisionPoll} from '@/lib/poll';
@@ -10,7 +10,7 @@ import {VoiceRecorder} from "./voice-recorder";
 import {Polls,FollowControl,InlinePoll} from "./social-extras";
 import {StudioRuntime} from "./studio";
 import {GlassSettings} from './glass-settings';
-import {CallProvider,CallHistory,useCalls} from "./calls";
+
 import {InstallBanner} from './install-banner';
 import {Marketplace} from './economy';
 import {InstallApp} from "./install-app";
@@ -71,7 +71,7 @@ import { FilePicker, uploadFiles, MediaList } from "./media";
 import { EncryptedMessage } from "./encrypted-message";
 import { encryptMessage, type PublicDevice } from "@/lib/crypto-chat";
 const OpenVideoContext = createContext<(post: Post, fileId: string) => void>(() => {});
-type Tab = "streams" | "videos" | "market" | "plus" | "rewards" | "feed" | "chats" | "people" | "profile" | "account";
+type Tab = "videos" | "market" | "plus" | "rewards" | "feed" | "chats" | "people" | "profile" | "account";
 export function SocialApp({ initialUser }: { initialUser: User }) {
  const [serviceError,setServiceError]=useState('');useEffect(()=>{const update=(e:Event)=>setServiceError((e as CustomEvent<string>).detail);window.addEventListener('telejka-service-status',update);return()=>window.removeEventListener('telejka-service-status',update)},[]);
  const online=useOnline();const [rightOpen,setRightOpen]=useState(false);
@@ -150,7 +150,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
   const nav = [
     { key: "feed" as const, label: "Лента", icon: Home },
     { key: "videos" as const, label: "Лента видосиков", icon: Clapperboard },
-    { key: "streams" as const, label: "Стримы", icon: Radio },
+
     { key: "chats" as const, label: "Сообщения", icon: MessageCircle },
     { key: "people" as const, label: "Люди", icon: Users },
     { key: "rewards" as const, label: "БАТОНчики", icon: Sparkles },
@@ -159,7 +159,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     { key: "plus" as const, label: "Подписки", icon: Settings },
   ];
   return (
-    <OpenVideoContext.Provider value={(post,fileId)=>{setVideoStart({post,fileId});setTab("videos");window.scrollTo({top:0})}}><OnlineContext.Provider value={online}><CallProvider user={user}><StudioRuntime/><MobileNavigation tab={tab} onChange={setTab}/><div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
+    <OpenVideoContext.Provider value={(post,fileId)=>{setVideoStart({post,fileId});setTab("videos");window.scrollTo({top:0})}}><OnlineContext.Provider value={online}><StudioRuntime/><MobileNavigation tab={tab} onChange={setTab}/><div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
       <PushSync userId={user.id}/><DailyVisit userId={user.id} />
       <Notifications
         userId={user.id}
@@ -241,7 +241,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           </div>
         )}
         {serviceError&&<p className="error service-status" role="status">{serviceError} Повторные запросы временно приостановлены.</p>}{tab === "feed" && <><InstallBanner userId={user.id}/><Feed user={user} onPerson={openProfile} /></>}
-        {tab === "streams" && <Streams/>}
+
         {tab === "videos" && <VideoFeed embedded initial={videoStart?.post} fileId={videoStart?.fileId} user={user} onClose={()=>{setVideoStart(null);setTab("feed")}} onPerson={openProfile}/>}
         {tab === "account" && viewed && (
           <PublicProfile
@@ -336,7 +336,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           </button>
         </aside>
       )}
-    </div></CallProvider></OnlineContext.Provider></OpenVideoContext.Provider>
+    </div></OnlineContext.Provider></OpenVideoContext.Provider>
   );
 }
 function ArrowRightIcon() {
@@ -1048,7 +1048,7 @@ function Chats({
       clearInterval(timer);
     };
   }, []);
-  const [filter,setFilter]=useState<'all'|'direct'|'groups'|'channels'|'calls'>('all');
+  const [filter,setFilter]=useState<'all'|'direct'|'groups'|'channels'>('all');
   const [channelRows,setChannelRows]=useState<Channel[]>([]),[selectedChannel,setSelectedChannel]=useState<string|null>(null);
   const refreshChannels=()=>api<Channel[]>('channels').then(setChannelRows).catch(e=>setError(errorText(e)));
   useEffect(()=>{let active=true;const load=()=>{if(!document.hidden)api<Channel[]>('channels').then(rows=>{if(active)setChannelRows(rows)}).catch(()=>{})};load();const t=setInterval(load,30000);const initial=new URLSearchParams(location.search).get('channel');if(initial&&/^[0-9a-f-]{36}$/i.test(initial)){setSelectedChannel(initial);onSelected(initial)}return()=>{active=false;clearInterval(t)}},[]);
@@ -1082,11 +1082,10 @@ function Chats({
               onChange={(e) => setSearch(e.target.value)}
             />
           </label>
-          <div className="chat-filters" aria-label="Фильтр чатов">{([{key:"all",label:"Все"},{key:"direct",label:"Личные"},{key:"groups",label:"Группы"},{key:"channels",label:"Каналы"},{key:"calls",label:"Звонки"}] as const).map(item=><button key={item.key} aria-pressed={filter===item.key} className={filter===item.key?"active":""} onClick={()=>setFilter(item.key)}>{item.label}</button>)}</div>
-          {filter==="calls"&&<CallHistory onOpen={id=>{setSelected(id);onSelected(id)}}/>}
+          <div className="chat-filters" aria-label="Фильтр чатов">{([{key:"all",label:"Все"},{key:"direct",label:"Личные"},{key:"groups",label:"Группы"},{key:"channels",label:"Каналы"}] as const).map(item=><button key={item.key} aria-pressed={filter===item.key} className={filter===item.key?"active":""} onClick={()=>setFilter(item.key)}>{item.label}</button>)}</div>
           {(filter==='all'||filter==='channels')&&channelRows.filter(c=>c.title.toLowerCase().includes(search.toLowerCase())).map(c=><button className={`chat-item ${selectedChannel===c.id?'selected':''}`} key={c.id} onClick={()=>chooseChannel(c.id)}><Avatar user={{name:c.title,avatar:c.avatar||null,color:'#d8efac'}}/><span><strong>{c.title}</strong><small>Канал · {c.subscribers} подписчиков</small></span></button>)}
           {chats
-            .filter(()=>filter!=="calls"&&filter!=="channels")
+            .filter(()=>filter!=="channels")
             .filter(c=>filter==="all"||(filter==="groups"?c.is_group:!c.is_group))
             .filter((c) =>
               chatName(c, user.id).toLowerCase().includes(search.toLowerCase()),
@@ -1133,7 +1132,7 @@ function Chats({
                 <time className="chat-row-time">{new Date(chat.updated_at).toLocaleDateString()===new Date().toLocaleDateString()?new Date(chat.updated_at).toLocaleTimeString("ru",{hour:"2-digit",minute:"2-digit"}):new Date(chat.updated_at).toLocaleDateString("ru",{day:"numeric",month:"short"})}</time>
               </button>
             ))}
-          {!chats.length && !channelRows.length && filter!=="calls" && (
+          {!chats.length && !channelRows.length && (
             <Empty
               icon={<MessageCircle size={25} />}
               title="Нет чатов"
@@ -1202,7 +1201,7 @@ function Conversation({
   onBack: () => void;
   onPerson: (u: User) => void;
 }) {
-  const calls=useCalls();
+
   const [files, setFiles] = useState<File[]>([]),
     [keyWarning, setKeyWarning] = useState<{
       value: string;
@@ -1354,7 +1353,6 @@ function Conversation({
               : <OnlineStatus id={chat.participants.find(p=>p.id!==user.id)?.id||user.id}/> }
           </small><ChatActivity chatId={chat.id} body={body} uploading={busy&&files.length>0}/>
         </div>
-        {!chat.is_group&&<button className="icon-button call-start" aria-label="Позвонить" title="Голосовой звонок" disabled={calls.busy} onClick={()=>calls.start(chat)}><Phone size={20}/></button>}
         <button
           className="icon-button"
           aria-label="Участники чата"

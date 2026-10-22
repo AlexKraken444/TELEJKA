@@ -1,4 +1,4 @@
-import {streamsFlow} from "./streams-flow";
+
 import {videoDiscountsFlow} from './video-discounts-flow';
 import {commerceFlow} from './commerce-flow';
 import { test } from "node:test";
@@ -360,26 +360,10 @@ test(
     assert.equal(chatSnapshot.status,200,JSON.stringify(chatSnapshot.body));assert.ok(Array.isArray(chatSnapshot.body.data));
     assert.equal((await request('chats?sync=1&revision='+chatSnapshot.body.revision,'GET',undefined,alice.cookie)).body.unchanged,true);
     await db.query('DELETE FROM messages WHERE id=$1',[editable.body.id]);
-    const callData={id:callId,chatId:direct.body.id,deviceId:devices[0].id,offer:callOffer};
-    assert.equal((await request('calls','POST',callData,alice.cookie)).status,201);
-    assert.equal((await request('calls','POST',{...callData,id:crypto.randomUUID()},alice.cookie)).status,409);
-    assert.equal((await request('calls/'+callId,'GET',undefined,outsider.cookie)).status,404);
-    assert.equal((await request('calls/'+callId,'POST',{action:'candidates',deviceId:devices[0].id,signal:callData.offer},outsider.cookie)).status,404);
-    assert.equal((await request('calls/'+callId,'POST',{action:'candidates',deviceId:devices[0].id,signal:callData.offer},alice.cookie)).status,200);
-    const receivedCall=(await request('calls/'+callId,'GET',undefined,bob.cookie)).body;
-    assert.equal((await decryptMessage<any>(callId,receivedCall.offer,identities[1])).description.sdp,'private-sdp');
-    const answer=await encryptMessage(callId,{callId,description:{type:'answer',sdp:'answer-sdp'}},devices.slice(0,1));
-    assert.equal((await request('calls/'+callId,'POST',{action:'accept',deviceId:devices[0].id,answer},alice.cookie)).status,400);
-    assert.equal((await request('calls/'+callId,'POST',{action:'accept',deviceId:devices[1].id,answer},bob.cookie)).status,200);
-    assert.equal((await request('calls/'+callId,'POST',{action:'accept',deviceId:devices[1].id,answer},bob.cookie)).status,409);
-    assert.equal((await request('calls/'+callId,'POST',{action:'end',deviceId:devices[0].id},alice.cookie)).status,200);
-    const ended=(await request('calls/'+callId,'GET',undefined,bob.cookie)).body;
-    assert.equal(ended.state,'ended');assert.equal(ended.offer,null);assert.equal(ended.answer,null);
-    const missedId=crypto.randomUUID();
-    assert.equal((await request('calls','POST',{...callData,id:missedId},alice.cookie)).status,201);
-    await db.query("UPDATE voice_calls SET created_at=now()-interval '2 minutes' WHERE id=$1",[missedId]);
-    assert.equal((await request('calls/'+missedId,'GET',undefined,alice.cookie)).body.state,'missed');
-    assert.equal((await request('calls/config','GET',undefined,alice.cookie)).body.relayConfigured,false);
+    for(const route of ['calls','calls/config','streams','streams/config']){
+      assert.equal((await request(route,'GET',undefined,alice.cookie)).status,410);
+      assert.equal((await request(route,'POST',{},alice.cookie)).status,410);
+    }
 
     assert.equal(
       (
@@ -1486,7 +1470,7 @@ test(
     assert.equal((await request('me','GET',undefined,bob.cookie)).body.can_manage_verification,false);
     assert.equal((await request(channelPath,'DELETE',undefined,bob.cookie)).status,403);
     assert.equal((await request(channelPath,'DELETE',undefined,alice.cookie)).status,200);
-    await streamsFlow({db,request,alice,bob,vera});
+
     await videoDiscountsFlow({db,request,alice,bob});
     await commerceFlow({db,request,alice,bob,vera,direct,changedEnvelope,origin});
     await request("auth/logout", "POST", {}, alice.cookie);

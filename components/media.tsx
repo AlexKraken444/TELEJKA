@@ -149,12 +149,18 @@ export function MediaList({ items = [],onOpenVideo }: { items?: Attachment[];onO
   );
 }
 const attachmentCache=new Map<string,Blob>();let cacheSize=0;
-export async function loadAttachment(item:Attachment):Promise<Blob>{
- const key=item.id+':'+(item.key||'');const cached=attachmentCache.get(key);if(cached)return cached;
+const pendingAttachments=new Map<string,Promise<Blob>>();
+export function loadAttachment(item:Attachment):Promise<Blob>{
+ const key=[item.id,item.key||'',item.iv||'',item.mime].join(':');
+ const pending=pendingAttachments.get(key);if(pending)return pending;
+ const task=fetchAttachment(item).finally(()=>pendingAttachments.delete(key));pendingAttachments.set(key,task);return task;
+}
+async function fetchAttachment(item:Attachment):Promise<Blob>{
+ const key=[item.id,item.key||'',item.iv||'',item.mime].join(':');const cached=attachmentCache.get(key);if(cached)return cached;
  const info=await api<{chunks:number;size:number}>('uploads/'+item.id);
  if(info.size>26214416||info.chunks>101)throw Error('Недопустимый размер файла.');
  const data=new Uint8Array(info.size);
- for(let base=0;base<info.chunks;base+=4)await Promise.all(Array.from({length:Math.min(4,info.chunks-base)},async(_,n)=>{const i=base+n;const chunk=await api<{data:string}>('uploads/'+item.id+'/'+i);data.set(from64(chunk.data),i*262144)}));
+ let next=0;await Promise.all(Array.from({length:Math.min(4,info.chunks)},async()=>{while(next<info.chunks){const i=next++;const chunk=await api<{data:string}>('uploads/'+item.id+'/'+i);data.set(from64(chunk.data),i*262144)}}));
  const plain=item.key&&item.iv?await decryptFile(data,item.key,item.iv):data;
  const blob=new Blob([plain as BlobPart],{type:inlineTypes.includes(item.mime)?item.mime:'application/octet-stream'});
  while(cacheSize+blob.size>32*1024*1024&&attachmentCache.size){const first=attachmentCache.keys().next().value!;cacheSize-=attachmentCache.get(first)!.size;attachmentCache.delete(first)}

@@ -92,6 +92,13 @@ export function VideoFeed({
   useEffect(() => {
     if (active >= items.length - 3) void loadMore();
   }, [active, items.length]);
+  useEffect(()=>{
+    const connection=(navigator as Navigator & {connection?:{saveData?:boolean}}).connection;
+    if(connection?.saveData)return;
+    const next=items[active+1];if(!next)return;
+    const timer=setTimeout(()=>{void loadAttachment(next.file).catch(()=>{});},1200);
+    return ()=>clearTimeout(timer);
+  },[active,items]);
   function move(delta: number) {
     list.current?.scrollTo({
       top:

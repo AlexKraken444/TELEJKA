@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import {SeasonalTheme} from "@/components/seasonal-theme";
 import {GlassEffects} from '@/components/glass-settings';
 export const viewport: Viewport = {width:"device-width",initialScale:1,viewportFit:"cover"};
 export const metadata: Metadata = {
@@ -22,7 +23,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body><GlassEffects/>{children}</body>
+      <body><SeasonalTheme/><GlassEffects/>{children}</body>
     </html>
   );
 }
