@@ -22,7 +22,7 @@ export async function api<T>(
   data?: unknown,
 ): Promise<T> {
   if(Date.now()<servicePauseUntil)throw new Error(serviceError);
-  const res = await fetch(`/api/${path}`, {
+  const res = await fetch(`${window.location.pathname.startsWith("/youtelejka")?"/api/you/":"/api/"}${path}`, {
     method,
     headers: { "Content-Type": "application/json" },
     body: data === undefined ? undefined : JSON.stringify(data),
@@ -32,7 +32,7 @@ export async function api<T>(
   if(res.status===503){serviceError=body.error||'Сервер временно недоступен.';servicePauseUntil=Date.now()+Math.min(300,Math.max(10,Number(res.headers.get('retry-after'))||30))*1000;window.dispatchEvent(new CustomEvent('telejka-service-status',{detail:serviceError}));}
   else if(res.ok&&serviceError){serviceError='';servicePauseUntil=0;window.dispatchEvent(new CustomEvent('telejka-service-status',{detail:''}));}
   if (!res.ok) {
-    if (res.status === 401 && !path.startsWith("auth/"))
+    if (res.status === 401 && !path.startsWith("auth/") && !window.location.pathname.startsWith("/youtelejka"))
       window.location.assign("/register");
     throw new Error(body.error || "Не удалось выполнить запрос.");
   }

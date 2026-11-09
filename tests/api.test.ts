@@ -1471,6 +1471,34 @@ test(
     assert.equal((await request(channelPath,'DELETE',undefined,bob.cookie)).status,403);
     assert.equal((await request(channelPath,'DELETE',undefined,alice.cookie)).status,200);
 
+    // Shared GIFs survive deletion of the post that uses them; PLUS is enforced server-side.
+    const gifBytes=Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7','base64');
+    const gifUpload=await request('uploads','POST',{name:'Тест.gif',mime:'image/gif',size:gifBytes.length,chatId:null},alice.cookie);
+    assert.equal(gifUpload.status,201);
+    const gifId=gifUpload.body.id;
+    await request('uploads/'+gifId+'/0','POST',{data:gifBytes.toString('base64')},alice.cookie);
+    await request('uploads/'+gifId+'/complete','POST',{},alice.cookie);
+    assert.equal((await request('gifs','POST',{uploadId:gifId,title:'Коллекция тест'},bob.cookie)).status,400);
+    assert.equal((await request('gifs','POST',{uploadId:gifId,title:'Коллекция тест'},alice.cookie)).status,200);
+    assert.ok((await request('gifs?q='+encodeURIComponent('Коллекция'),'GET',undefined,bob.cookie)).body.some((g:any)=>g.id===gifId));
+    assert.equal((await request('uploads/'+gifId+'/0','GET',undefined,bob.cookie)).status,200);
+    const gifPost=await request('posts','POST',{body:'GIF collection test'},alice.cookie);
+    const oldPlus=(await db.query<{plus_until:string|null}>('SELECT plus_until FROM users WHERE id=$1',[alice.id])).rows[0].plus_until;
+    await db.query('UPDATE users SET plus_until=NULL WHERE id=$1',[alice.id]);
+    assert.equal((await request('posts/'+gifPost.body.id+'/comments','POST',{gif:gifId},alice.cookie)).status,403);
+    await db.query("UPDATE users SET plus_until=now()+interval '1 day' WHERE id=$1",[alice.id]);
+    assert.equal((await request('posts/'+gifPost.body.id+'/comments','POST',{gif:gifId},alice.cookie)).status,201);
+    assert.equal((await request('posts/'+gifPost.body.id+'/comments','GET',undefined,alice.cookie)).body[0].attachments[0].id,gifId);
+    await request('posts/'+gifPost.body.id,'DELETE',undefined,alice.cookie);
+    assert.equal((await request('uploads/'+gifId+'/0','GET',undefined,bob.cookie)).status,200);
+    await db.query('UPDATE users SET plus_until=$1 WHERE id=$2',[oldPlus,alice.id]);
+    await db.query('DELETE FROM uploads WHERE id=$1',[gifId]);
+    const albumIds:string[]=[];
+    for(let i=0;i<2;i++){const f=await request('uploads','POST',{name:'Кадр '+i,mime:'image/gif',size:gifBytes.length,chatId:null},alice.cookie);albumIds.push(f.body.id);await request('uploads/'+f.body.id+'/0','POST',{data:gifBytes.toString('base64')},alice.cookie);await request('uploads/'+f.body.id+'/complete','POST',{},alice.cookie)}
+    const ordered=albumIds.reverse();const album=await request('posts','POST',{body:'Альбом',attachmentIds:ordered},alice.cookie);assert.equal(album.status,201);
+    const savedAlbum=await request('posts/'+album.body.id,'GET',undefined,alice.cookie);assert.deepEqual(savedAlbum.body.attachments.map((a:any)=>a.id),ordered);
+    await request('posts/'+album.body.id,'DELETE',undefined,alice.cookie);
+
     await videoDiscountsFlow({db,request,alice,bob});
     await commerceFlow({db,request,alice,bob,vera,direct,changedEnvelope,origin});
     await request("auth/logout", "POST", {}, alice.cookie);

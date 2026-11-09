@@ -1,3 +1,4 @@
+import {commentGif} from "@/lib/comment-gif";
 import {noteDatabaseFailure} from '@/lib/db';
 import {chatListRevision,messageRevision} from '@/lib/sync-revision';
 import {resourceFailure} from '@/lib/resource-error';
@@ -308,11 +309,12 @@ async function handle(
         Math.max(0, Number(req.nextUrl.searchParams.get("offset")) || 0),
       );
       const mine = req.nextUrl.searchParams.get("mine") === "true";
+      const searchQuery=(req.nextUrl.searchParams.get('q')||'').slice(0,100);
       const videosOnly=req.nextUrl.searchParams.get("videos")==="true";
       const authorParam = req.nextUrl.searchParams.get("author");
       const author = authorParam ? idSchema.parse(authorParam) : null;
       return json(
-        await sql`SELECT p.*, (SELECT id FROM polls WHERE post_id=p.id) poll_id, telejka_post_reactions(p.id,${user.id}::uuid) AS reactions, telejka_user(u.id,${user.id}::uuid) AS author, (SELECT count(*)::int FROM likes l WHERE l.post_id = p.id) AS likes, (SELECT count(*)::int FROM comments c WHERE c.post_id = p.id) AS comments, EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ${user.id}) AS liked FROM posts p JOIN users u ON u.id = p.user_id WHERE telejka_can_view(p.user_id,${user.id}::uuid) AND (${!videosOnly} OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.attachments) a WHERE a->>'mime' LIKE 'video/%')) AND (${!mine} OR p.user_id = ${user.id}) AND (${author}::uuid IS NULL OR p.user_id=${author}::uuid) ORDER BY p.created_at DESC, p.id DESC LIMIT 20 OFFSET ${offset}`,
+        await sql`SELECT p.*, (SELECT id FROM polls WHERE post_id=p.id) poll_id, telejka_post_reactions(p.id,${user.id}::uuid) AS reactions, telejka_user(u.id,${user.id}::uuid) AS author, (SELECT count(*)::int FROM likes l WHERE l.post_id = p.id) AS likes, (SELECT count(*)::int FROM comments c WHERE c.post_id = p.id) AS comments, EXISTS(SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = ${user.id}) AS liked FROM posts p JOIN users u ON u.id = p.user_id WHERE telejka_can_view(p.user_id,${user.id}::uuid) AND (${!searchQuery} OR p.body ILIKE ${'%'+searchQuery+'%'} OR u.name ILIKE ${'%'+searchQuery+'%'}) AND (${!videosOnly} OR EXISTS(SELECT 1 FROM jsonb_array_elements(p.attachments) a WHERE a->>'mime' LIKE 'video/%')) AND (${!mine} OR p.user_id = ${user.id}) AND (${author}::uuid IS NULL OR p.user_id=${author}::uuid) ORDER BY p.created_at DESC, p.id DESC LIMIT 20 OFFSET ${offset}`,
       );
     }
     if (route === "posts" && req.method === "POST") {
@@ -354,7 +356,7 @@ async function handle(
           );
           await tx`DELETE FROM posts WHERE id=${id}`;
           if (ids.length)
-            await tx`DELETE FROM uploads WHERE id IN ${tx(ids)} AND chat_id IS NULL`;
+            await tx`DELETE FROM uploads WHERE id IN ${tx(ids)} AND chat_id IS NULL AND NOT EXISTS(SELECT 1 FROM gif_library WHERE upload_id=uploads.id)`;
         });
         return json({ ok: true });
       }
@@ -388,10 +390,12 @@ async function handle(
           input.attachmentIds,
           user.id,
         );
-        if (!body && !attachments.length)
+        const gifs=await commentGif(input.gif,user.id);
+        if(attachments.length+gifs.length>4)throw new ApiError(400,"До 4 вложений в комментарии.");
+        if (!body && !attachments.length && !gifs.length)
           throw new ApiError(400, "Добавьте текст, фото или видео.");
         await sql.begin(async (tx) => {
-          await tx`INSERT INTO comments(post_id,user_id,body,attachments) VALUES (${id},${user.id},${body},${tx.json(attachments)})`;
+          await tx`INSERT INTO comments(post_id,user_id,body,attachments) VALUES (${id},${user.id},${body},${tx.json([...attachments,...gifs])})`;
           if (attachments.length) {
             const claimed =
               await tx`UPDATE uploads SET published=true WHERE id IN ${tx(attachments.map((a) => a.id))} AND published=false RETURNING id`;

@@ -1,4 +1,6 @@
 "use client";
+import {GifPicker} from "./gif-picker";
+import type {Attachment} from "./media";
 
 import {VideoFeed} from "./video-feed";
 import {Channels,type Channel} from "./channels";
@@ -195,6 +197,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           <Plus size={20} />
           <span>Написать пост</span>
         </button>
+        <button className="secondary" onClick={()=>window.open("/youtelejka","YouTelejka","popup,width=1280,height=860")}>YouTelejka ↗</button>
         <div className="sidebar-bottom">
           <ThemeToggle />
           <button className="user-switch" onClick={() => setTab("profile")}>
@@ -226,7 +229,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
       <main className={`main-content view-${tab} ${tab === "chats" ? "chat-main" : ""}`}>
         <div className="mobile-brand">
           <Logo />
-          <button className="icon-button mobile-right-toggle" aria-label="Хэштеги и люди" onClick={()=>setRightOpen(!rightOpen)}><Hash size={20}/></button><ThemeToggle />
+          <button className="you-mobile-launch" onClick={()=>window.open("/youtelejka","YouTelejka","popup,width=1280,height=860")}>YouTelejka</button><button className="icon-button mobile-right-toggle" aria-label="Хэштеги и люди" onClick={()=>setRightOpen(!rightOpen)}><Hash size={20}/></button><ThemeToggle />
         </div>
         {error && (
           <div className="error global-error" role="alert">
@@ -601,6 +604,7 @@ function PostCard({
     [likes, setLikes] = useState(post.likes),
     [open, setOpen] = useState(false),
     [comments, setComments] = useState<Comment[]>([]),
+    [gif,setGif]=useState<Attachment|null>(null),
     [body, setBody] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -645,8 +649,10 @@ function PostCard({
       const attachments = await uploadFiles(files);
       await api(`posts/${post.id}/comments`, "POST", {
         body,
+        gif:gif?.id,
         attachmentIds: attachments.map((a) => a.id),
       });
+      setGif(null);
       setFiles([]);
       setBody("");
       await load();
@@ -761,6 +767,7 @@ function PostCard({
               </button>
             )}
             <FilePicker files={files} onChange={setFiles} disabled={busy} />
+            <GifPicker plus={user.plus_active} value={gif} onChange={setGif}/>
             <form onSubmit={comment} className="comment-form">
               <input
                 aria-label="Комментарий"

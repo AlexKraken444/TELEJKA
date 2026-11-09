@@ -1,3 +1,4 @@
+import {gifLibraryApi} from "./gif-library-api";
 import {editShareApi} from './edit-share-api';
 import {presenceApi} from "./presence-api";
 import {socialStudioApi} from "./social-studio-api";
@@ -43,7 +44,7 @@ export async function attachmentMetadata(
     await sql`SELECT id,name,mime,size FROM uploads WHERE id IN ${sql(list)} AND owner_id=${userId} AND ready=true AND published=false AND chat_id IS NOT DISTINCT FROM ${chatId}::uuid`;
   if (rows.length !== list.length)
     throw new FeatureError(400, "Вложения недоступны или ещё загружаются.");
-  return rows.map((r) => ({
+  return list.map((id) => rows.find((row)=>row.id===id)!).map((r) => ({
     id: r.id,
     name: r.name,
     mime: r.mime,
@@ -58,6 +59,7 @@ export async function featureApi(
 ): Promise<Response | undefined> {
   const sql = db(),
     route = path.join("/");
+  const gifResponse=await gifLibraryApi(req,path,input,userId);if(gifResponse)return gifResponse;
   const editResponse=await editShareApi(req,path,input,userId);if(editResponse)return editResponse;
   const presenceResponse=await presenceApi(req,path,input,userId);if(presenceResponse)return presenceResponse;
   const studioResponse=await socialStudioApi(req,path,input,userId);if(studioResponse)return studioResponse;
@@ -191,7 +193,7 @@ export async function featureApi(
         else {
           const [visible] =
             await sql`SELECT 1 FROM posts p WHERE p.attachments @> ${sql.json([{ id: uploadId }])}::jsonb AND telejka_can_view(p.user_id,${userId}::uuid)
-          UNION ALL SELECT 1 FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.attachments @> ${sql.json([{ id: uploadId }])}::jsonb AND telejka_can_view(p.user_id,${userId}::uuid) AND telejka_can_view(c.user_id,${userId}::uuid) UNION ALL SELECT 1 FROM channel_posts cp WHERE cp.attachments @> ${sql.json([{ id: uploadId }])}::jsonb UNION ALL SELECT 1 FROM profile_music m JOIN users u ON u.id=m.user_id WHERE m.upload_id=${uploadId} AND telejka_can_view(u.id,${userId}::uuid) LIMIT 1`;
+          UNION ALL SELECT 1 FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.attachments @> ${sql.json([{ id: uploadId }])}::jsonb AND telejka_can_view(p.user_id,${userId}::uuid) AND telejka_can_view(c.user_id,${userId}::uuid) UNION ALL SELECT 1 FROM channel_posts cp WHERE cp.attachments @> ${sql.json([{ id: uploadId }])}::jsonb UNION ALL SELECT 1 FROM profile_music m JOIN users u ON u.id=m.user_id WHERE m.upload_id=${uploadId} AND telejka_can_view(u.id,${userId}::uuid) UNION ALL SELECT 1 FROM gif_library g WHERE g.upload_id=${uploadId} LIMIT 1`;
           if (!visible) throw new FeatureError(404, "Файл недоступен.");
         }
       }

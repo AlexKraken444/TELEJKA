@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS gif_library(upload_id uuid PRIMARY KEY REFERENCES uploads(id) ON DELETE CASCADE, owner_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE, title text NOT NULL CHECK(length(title) BETWEEN 1 AND 100),created_at timestamptz NOT NULL DEFAULT now());CREATE INDEX IF NOT EXISTS gif_library_recent ON gif_library(created_at DESC,upload_id);

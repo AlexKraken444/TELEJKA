@@ -140,14 +140,10 @@ export async function uploadFiles(
   }
   return attachments;
 }
-export function MediaList({ items = [],onOpenVideo }: { items?: Attachment[];onOpenVideo?:(file:Attachment)=>void }) {
-  return (
-    <div className="media-list">
-      {items.slice(0, 4).map((item) => (
-        <Media key={item.id} item={item} onOpenVideo={onOpenVideo}/>
-      ))}
-    </div>
-  );
+export function MediaList({items=[],onOpenVideo}:{items?:Attachment[];onOpenVideo?:(file:Attachment)=>void}){
+ const track=useRef<HTMLDivElement>(null);const [index,setIndex]=useState(0);const album=items.length>1;
+ function move(n:number){track.current?.scrollTo({left:n*track.current.clientWidth,behavior:'smooth'})}
+ return <div className={album?'media-album':'media-single'}><div ref={track} className={album?'media-list carousel-track':'media-list'} onScroll={e=>{if(album)setIndex(Math.round(e.currentTarget.scrollLeft/e.currentTarget.clientWidth))}}>{items.slice(0,4).map(item=><div className="carousel-slide" key={item.id}><Media item={item} onOpenVideo={onOpenVideo}/></div>)}</div>{album&&<div className="carousel-controls"><button type="button" disabled={index===0} onClick={()=>move(index-1)} aria-label="Предыдущее вложение">‹</button><span aria-live="polite">{index+1} / {Math.min(items.length,4)}</span><button type="button" disabled={index>=Math.min(items.length,4)-1} onClick={()=>move(index+1)} aria-label="Следующее вложение">›</button></div>}</div>
 }
 const attachmentCache=new Map<string,Blob>();let cacheSize=0;
 const pendingAttachments=new Map<string,Promise<Blob>>();

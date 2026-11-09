@@ -1,4 +1,5 @@
 "use client";
+import {GifPicker} from "./gif-picker";
 import {useVideoAmbient} from "./use-video-ambient";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -431,7 +432,7 @@ function VideoActions({
     </div>
   );
 }
-function VideoComments({
+export function VideoComments({
   post,
   user,
   onClose,
@@ -442,6 +443,7 @@ function VideoComments({
   onClose: () => void;
   onCount: (delta: number) => void;
 }) {
+  const [gif,setGif]=useState<Attachment|null>(null);
   const [items, setItems] = useState<Comment[]>([]),
     [body, setBody] = useState(""),
     [error, setError] = useState(""),
@@ -546,17 +548,19 @@ function VideoComments({
         )}
       </div>
       {error && <p role="alert">{error}</p>}
+      <GifPicker plus={user.plus_active} value={gif} onChange={setGif}/>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
-          if (pending.current || !body.trim()) return;
+          if (pending.current || (!body.trim()&&!gif)) return;
           pending.current = true;
           setBusy(true);
           setError("");
           try {
-            await api(`posts/${post.id}/comments`, "POST", { body });
+            await api(`posts/${post.id}/comments`, "POST", { body,gif:gif?.id });
             if (alive.current) {
               setBody("");
+              setGif(null);
               onCount(1);
               await load();
             }
@@ -576,7 +580,7 @@ function VideoComments({
           aria-label="Комментарий"
           maxLength={1000}
         />
-        <button disabled={busy || !body.trim()}>Отправить</button>
+        <button disabled={busy || (!body.trim()&&!gif)}>Отправить</button>
       </form>
     </section>
   );
