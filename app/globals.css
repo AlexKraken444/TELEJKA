@@ -3352,3 +3352,8 @@ html:root:root body :is(.content-tools,.extra-actions,.post-tools,.chat-actions)
 .gif-picker button,.gif-panel label,.gif-grid button{white-space:normal!important;overflow-wrap:anywhere;line-height:1.4!important;height:auto;min-height:44px}
 .gif-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.gif-grid .carousel-slide,.gif-grid .media-item{min-width:0;max-width:100%}
 @media(max-width:400px){.video-feed-top{gap:8px;padding-inline:10px}.video-feed-caption{right:80px;max-width:calc(100% - 90px)}.gif-panel{padding:12px}.gif-grid>div{padding:4px}.video-comments>form>button{padding-inline:12px}}
+
+/* Video cards are media links, not glass buttons. */
+html:root:root body .you-app button.you-card,html:root:root body .you-app button.you-card:is(:hover,:active,:focus){background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;transform:none!important;border-radius:14px!important;outline:none!important;-webkit-tap-highlight-color:transparent}
+html:root:root body .you-app button.you-card:focus-visible .you-thumbnail{outline:2px solid #aaa;outline-offset:3px}
+.you-thumbnail{box-sizing:border-box;isolation:isolate}.you-thumbnail :is(img,video){display:block;min-width:0;border-radius:inherit}
