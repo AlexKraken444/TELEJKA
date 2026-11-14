@@ -1,4 +1,5 @@
 "use client";
+import {RichText} from "./rich-text";
 import { useEffect, useRef, useState } from "react";
 import type { User } from "@/lib/types";
 import { FilePicker, MediaList, uploadFiles, type Attachment } from "./media";
@@ -292,7 +293,7 @@ export function Channels({
                     </button>
                   </form>
                 )}
-                {channel.description&&<p className="channel-description">{channel.description}</p>}
+                {channel.description&&<p className="channel-description"><RichText text={channel.description}/></p>}
                 <div className="channel-toolbar">
                   <button
                     className="primary"
@@ -358,7 +359,7 @@ export function Channels({
               {[...posts].reverse().map((p) => (
                 <article className="settings-card channel-post" key={p.id}>
                   <strong>{channel.title}</strong>
-                  <p>{p.body}</p>
+                  <p>{<RichText text={p.body}/>}</p>
                   <MediaList items={p.attachments} />
                   <time dateTime={p.created_at} title={new Date(p.created_at).toLocaleString("ru")}>{new Date(p.created_at).toLocaleDateString("ru",{day:"numeric",month:"short"})} · {new Date(p.created_at).toLocaleTimeString("ru",{hour:"2-digit",minute:"2-digit"})}</time>
                   <ChannelComments
@@ -464,7 +465,7 @@ function ChannelComments({ path, count }: { path: string; count: number }) {
           {rows.map((r) => (
             <div key={r.id}>
               <UserName user={r.author} />
-              <p>{r.body}</p>
+              <p><RichText text={r.body}/></p>
             </div>
           ))}
           <form

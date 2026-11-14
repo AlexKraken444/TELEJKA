@@ -1,0 +1,4 @@
+import {Fragment,type ReactNode} from 'react';
+export function safeLink(value:string){try{const url=new URL(value);return ['https:','http:'].includes(url.protocol)?url.href:null}catch{return null}}
+export function RichText({text}:{text:string}){return <>{render(text)}</>}
+function render(text:string,depth=0):ReactNode{if(depth>4)return text;const re=/\*\*([^*\n]+)\*\*|\*([^*\n]+)\*|\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;const nodes:ReactNode[]=[];let from=0;for(const m of text.matchAll(re)){nodes.push(text.slice(from,m.index));const href=m[4]?safeLink(m[4]):null;nodes.push(<Fragment key={m.index}>{m[1]?<strong>{render(m[1],depth+1)}</strong>:m[2]?<em>{render(m[2],depth+1)}</em>:href?<a href={href} target="_blank" rel="noopener noreferrer nofollow">{render(m[3],depth+1)}</a>:m[0]}</Fragment>);from=m.index!+m[0].length}nodes.push(text.slice(from));return nodes}

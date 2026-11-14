@@ -1,4 +1,6 @@
 "use client";
+import {RichText} from "./rich-text";
+import {AIChat} from "./ai-chat";
 import {RoundRecorder} from "./round-recorder";
 import type {MessageReply} from "./encrypted-message";
 import {GifPicker} from "./gif-picker";
@@ -410,7 +412,7 @@ function Person({
             <UserName user={person} />
           </strong>
         </button>
-        <p>{person.bio || ""}</p><OnlineStatus id={person.id}/><small>{person.follower_count ?? 0} подписчиков</small>
+        <p><RichText text={person.bio || ""}/></p><OnlineStatus id={person.id}/><small>{person.follower_count ?? 0} подписчиков</small>
       </div>
       <button className="secondary" aria-label={`Написать ${person.name}`} onClick={onChat}>
         <MessageCircle size={16} />
@@ -699,7 +701,7 @@ function PostCard({
             </button>
           )}
         </div>
-        <>{post.poll_id?<InlinePoll id={post.poll_id} user={user}/>:<p className="post-body">{post.body}</p>}</>
+        <>{post.poll_id?<InlinePoll id={post.poll_id} user={user}/>:<p className="post-body">{<RichText text={post.body}/>}</p>}</>
         {post.is_repost&&<RepostCard id={post.repost_id}/>}
         <MediaList items={post.attachments} onOpenVideo={file=>openVideo(post,file.id)}/>{post.edited_at&&<small className="edited-label">отредактировано</small>}<PostTools post={post} userId={user.id} onChange={onChange}/>
         <Reactions
@@ -753,7 +755,7 @@ function PostCard({
                       <UserName user={c.author} />
                     </strong>
                   </button>
-                  <p>{c.body}</p>
+                  <p>{<RichText text={c.body}/>}</p>
                   <MediaList items={c.attachments} />
                   <small>{time(c.created_at)}{c.edited_at?" · отредактировано":""}</small>{c.author.id===user.id&&<div className="content-tools"><EditContent maxLength={1000} body={c.body} onSave={async body=>{await api(`posts/${post.id}/comments/${c.id}`,"PATCH",{body});await load()}}/><button type="button" onClick={async()=>{if(!confirm("Удалить комментарий?"))return;try{await api(`posts/${post.id}/comments/${c.id}`,"DELETE");await load();onChange()}catch(e){setError(errorText(e))}}}>Удалить</button></div>}
                 </div>
@@ -1092,6 +1094,7 @@ function Chats({
             />
           </label>
           <div className="chat-filters" aria-label="Фильтр чатов">{([{key:"all",label:"Все"},{key:"direct",label:"Личные"},{key:"groups",label:"Группы"},{key:"channels",label:"Каналы"}] as const).map(item=><button key={item.key} aria-pressed={filter===item.key} className={filter===item.key?"active":""} onClick={()=>setFilter(item.key)}>{item.label}</button>)}</div>
+          {(filter==='all'||filter==='direct')&&"telejka ai".includes(search.toLowerCase())&&<button className={"chat-item "+(selected==='telejka-ai'?'selected':'')} onClick={()=>{setSelectedChannel(null);setSelected("telejka-ai");onSelected("telejka-ai")}}><span className="ai-avatar">AI</span><span><strong>TELEJKA AI</strong><small>Личный ИИ-помощник</small></span></button>}
           {(filter==='all'||filter==='channels')&&channelRows.filter(c=>c.title.toLowerCase().includes(search.toLowerCase())).map(c=><button className={`chat-item ${selectedChannel===c.id?'selected':''}`} key={c.id} onClick={()=>chooseChannel(c.id)}><Avatar user={{name:c.title,avatar:c.avatar||null,color:'var(--green)'}}/><span><strong>{c.title}</strong><small>Канал · {c.subscribers} подписчиков</small></span></button>)}
           {chats
             .filter(()=>filter!=="channels")
@@ -1141,7 +1144,7 @@ function Chats({
                 <time className="chat-row-time">{new Date(chat.updated_at).toLocaleDateString()===new Date().toLocaleDateString()?new Date(chat.updated_at).toLocaleTimeString("ru",{hour:"2-digit",minute:"2-digit"}):new Date(chat.updated_at).toLocaleDateString("ru",{day:"numeric",month:"short"})}</time>
               </button>
             ))}
-          {!chats.length && !channelRows.length && (
+          {!chats.length && !channelRows.length && filter!=="all" && filter!=="direct" && (
             <Empty
               icon={<MessageCircle size={25} />}
               title="Нет чатов"
@@ -1150,7 +1153,7 @@ function Chats({
           )}
         </section>
         <section className="chat-window">
-          {selectedChannel?<Channels key={selectedChannel} user={user} initialSelection={selectedChannel} onBack={closeChannel} onChoose={chooseChannel}/>:current ? (
+          {selected==="telejka-ai"?<AIChat userId={user.id} onBack={()=>{setSelected(null);onSelected(null)}}/>:selectedChannel?<Channels key={selectedChannel} user={user} initialSelection={selectedChannel} onBack={closeChannel} onChoose={chooseChannel}/>:current ? (
             <Conversation
               key={current.id}
               chat={current}

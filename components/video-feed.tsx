@@ -1,4 +1,5 @@
 "use client";
+import {RichText} from "./rich-text";
 import {TelejkaPlayer} from "./telejka-player";
 import {GifPicker} from "./gif-picker";
 import {useVideoAmbient} from "./use-video-ambient";
@@ -207,7 +208,7 @@ export function VideoFeed({
                       {clip.post.body.slice(0, 100) || clip.file.name}
                       {clip.post.body.length > 100 ? "…" : ""}
                     </summary>
-                    {clip.post.body.length > 100 && <p>{clip.post.body}</p>}
+                    {clip.post.body.length > 100 && <p>{<RichText text={clip.post.body}/>}</p>}
                   </details>
                 </div>
                 <VideoActions
@@ -494,7 +495,7 @@ export function VideoComments({
               <strong>
                 <UserName user={c.author} />
               </strong>
-              <p>{c.body}</p>
+              <p>{<RichText text={c.body}/>}</p>
               <MediaList items={c.attachments} />
               <small>
                 {time(c.created_at)}

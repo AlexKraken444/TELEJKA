@@ -1,4 +1,5 @@
 "use client";
+import {RichText} from "./rich-text";
 import { useEffect, useState } from "react";
 import { Hash } from "lucide-react";
 import {MediaList} from "./media";
@@ -39,6 +40,6 @@ export function PopularHashtags() {
       <span className="hashtag-rank">{index + 1}</span>
       <button onClick={()=>void show(item.tag)}><strong>#{item.tag}</strong><small>Постов: {item.posts}</small></button>
     </li>)}</ol>
-{selected&&createPortal(<div className="modal-backdrop" onClick={()=>setSelected("")}><section className="modal hashtag-results" role="dialog" aria-modal="true" aria-label={"#"+selected} onClick={e=>e.stopPropagation()}><header><h2>#{selected}</h2><button onClick={()=>setSelected("")} aria-label="Закрыть">×</button></header><p>Публикаций: {total}</p>{error&&<p role="alert">{error}</p>}{results.map(post=><article key={post.id}><strong>{post.author.name}</strong><small>{new Date(post.created_at).toLocaleString('ru')}</small><p>{post.body}</p><MediaList items={post.attachments||[]}/></article>)}{loading?<p role="status">Загрузка…</p>:results.length<total&&<button onClick={()=>void show(selected,results.length)}>Показать ещё</button>}</section></div>,document.body)}
+{selected&&createPortal(<div className="modal-backdrop" onClick={()=>setSelected("")}><section className="modal hashtag-results" role="dialog" aria-modal="true" aria-label={"#"+selected} onClick={e=>e.stopPropagation()}><header><h2>#{selected}</h2><button onClick={()=>setSelected("")} aria-label="Закрыть">×</button></header><p>Публикаций: {total}</p>{error&&<p role="alert">{error}</p>}{results.map(post=><article key={post.id}><strong>{post.author.name}</strong><small>{new Date(post.created_at).toLocaleString('ru')}</small><p>{<RichText text={post.body}/>}</p><MediaList items={post.attachments||[]}/></article>)}{loading?<p role="status">Загрузка…</p>:results.length<total&&<button onClick={()=>void show(selected,results.length)}>Показать ещё</button>}</section></div>,document.body)}
   </section>;
 }

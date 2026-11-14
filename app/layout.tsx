@@ -1,3 +1,4 @@
+import {TextSelectionTools} from "@/components/text-selection-tools";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import {SeasonalTheme} from "@/components/seasonal-theme";
@@ -23,7 +24,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body><SeasonalTheme/><GlassEffects/>{children}</body>
+      <body><SeasonalTheme/><GlassEffects/>{children}<TextSelectionTools/></body>
     </html>
   );
 }

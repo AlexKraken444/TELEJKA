@@ -1,4 +1,5 @@
 "use client";
+import {RichText} from "./rich-text";
 import {EditContent,ShareButton,recipientDevices} from './content-tools';
 import {api} from './shared';
 import {encryptMessage} from '@/lib/crypto-chat';
@@ -52,11 +53,11 @@ export function EncryptedMessage({
   const content=message.envelope?decoded:{body:message.body,attachments:[]};
   async function save(body:string){if(!content)return;if(!body.trim()&&!content.attachments.length)throw Error('Напишите текст.');const envelope=await encryptMessage(chatId,{...content,body},await recipientDevices(chatId,userId));await api('chats/'+chatId+'/messages/'+message.id,'PATCH',{envelope});setDecoded({...content,body});setEdited(true);}
   const tools=content?<><div className="content-tools">{onReply&&<button type="button" onClick={()=>onReply({id:message.id,name:message.author.name,body:content.body.slice(0,300)||(content.attachments.length?"Вложение":"Сообщение")})}>Ответить</button>}{message.user_id===userId&&<EditContent body={content.body} onSave={save}/>}<ShareButton userId={userId} author={message.author.name} content={content}/></div>{(message.edited_at||edited)&&<small className="edited-label">отредактировано</small>}</>:null;
-  if (!message.envelope) return <><p>{edited&&decoded?decoded.body:message.body}</p>{tools}</>;
+  if (!message.envelope) return <><p>{<RichText text={edited&&decoded?decoded.body:message.body}/>}</p>{tools}</>;
   return decoded ? (
     <>
       {decoded.reply&&<button type="button" className="message-reply" onClick={()=>document.getElementById("message-"+decoded.reply!.id)?.scrollIntoView({block:"center",behavior:"smooth"})}><strong>{decoded.reply.name}</strong><span>{decoded.reply.body}</span></button>}
-      <p>{decoded.body}</p>
+      <p>{<RichText text={decoded.body}/>}</p>
       <MediaList items={decoded.attachments} />
       {tools}
     </>
