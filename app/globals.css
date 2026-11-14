@@ -3380,3 +3380,11 @@ html:root:root body .chat-window>.channel-conversation{flex-direction:column;wid
 .channel-post>strong{color:var(--text);font-weight:700}.channel-compose textarea{resize:none}.telejka-player-controls button::before,.telejka-player-controls button::after{display:none!important}
 
 @media(max-width:600px){.channel-compose{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center}.channel-compose>.file-picker{grid-column:1;grid-row:1}.channel-compose>textarea{grid-column:2;grid-row:1;width:100%;box-sizing:border-box}.channel-compose>button{grid-column:3;grid-row:1;font-size:12px!important;padding:10px!important}.channel-compose .file-picker>label{margin:0;padding:10px!important}.channel-compose .file-picker>label>span{display:none}.channel-compose .file-picker:has(.draft-attachment){grid-column:1/-1;grid-row:2;display:flex;flex-wrap:wrap}.channel-compose .draft-attachment{max-width:120px}}
+
+/* Channels and short videos scroll vertically; albums keep swipe navigation. */
+html:root:root body :is(.channel-timeline,.channel-info,.channel-compose,.video-feed-pages,.video-feed-caption details,.video-comments){overflow-x:hidden!important;max-width:100%;min-width:0;box-sizing:border-box}
+.channel-heading .channel-toolbar>div,.channel-comments,.channel-comments form,.channel-post .media-item,.video-feed-top>strong{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.channel-post :is(input,textarea),.channel-info :is(input,textarea){min-width:0;max-width:100%;box-sizing:border-box}
+.channel-post .telejka-player-controls{flex-wrap:wrap}.channel-post .telejka-player-controls input[type=range]{flex-basis:60px}
+.video-feed-pages{overscroll-behavior-x:none}.video-feed-page{box-sizing:border-box;max-width:100%}
+.channels-view .carousel-track::-webkit-scrollbar,.video-feed-overlay .carousel-track::-webkit-scrollbar{display:none}
