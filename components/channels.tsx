@@ -211,10 +211,11 @@ export function Channels({
                   />
                   <div><h2>{channel.title}</h2><small>{channel.subscribers} подписчиков</small></div>
                 </div>
-                <details className="channel-info"><summary>О канале и настройки</summary>
+                <div className="channel-info channel-info-simple">
                 {channel.owner_id === user.id && (
                   <button
                     className="secondary"
+                    aria-label="Изменить канал" title="Изменить канал"
                     onClick={() => {
                       setEditing(!editing);
                       setTitle(channel.title);
@@ -222,7 +223,7 @@ export function Channels({
                       setAvatar(channel.avatar || null);
                     }}
                   >
-                    Изменить канал
+                    ✎
                   </button>
                 )}
                 {editing && (
@@ -291,8 +292,7 @@ export function Channels({
                     </button>
                   </form>
                 )}
-                <p>{channel.description}</p>
-                <small>{channel.subscribers} подписчиков</small>
+                {channel.description&&<p className="channel-description">{channel.description}</p>}
                 <div className="channel-toolbar">
                   <button
                     className="primary"
@@ -310,30 +310,7 @@ export function Channels({
                   >
                     {channel.subscribed ? "Отписаться" : "Подписаться"}
                   </button>
-                  {channel.subscribed && (
-                    <button
-                      className="secondary"
-                      disabled={busy}
-                      onClick={() =>
-                        act(async () => {
-                          await api(
-                            "channels/" + channel.id + "/subscription",
-                            "POST",
-                            {
-                              subscribed: true,
-                              notifications: !channel.notifications,
-                            },
-                          );
-                          await load(channel.id);
-                        })
-                      }
-                    >
-                      {channel.notifications
-                        ? "Уведомления включены"
-                        : "Уведомления выключены"}
-                    </button>
-                  )}
-                  {channel.owner_id === user.id && (
+                  {editing && channel.owner_id === user.id && (
                     <button
                       className="secondary"
                       disabled={busy}
@@ -350,7 +327,7 @@ export function Channels({
                     </button>
                   )}
                 </div>
-                </details>
+                </div>
               </header>
               <div className="channel-timeline" ref={timeline} onScroll={()=>{const el=timeline.current;if(el)atBottom.current=el.scrollHeight-el.scrollTop-el.clientHeight<100}}>
               {posts.length >= 30 && (

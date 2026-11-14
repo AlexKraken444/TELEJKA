@@ -3388,3 +3388,5 @@ html:root:root body :is(.channel-timeline,.channel-info,.channel-compose,.video-
 .channel-post .telejka-player-controls{flex-wrap:wrap}.channel-post .telejka-player-controls input[type=range]{flex-basis:60px}
 .video-feed-pages{overscroll-behavior-x:none}.video-feed-page{box-sizing:border-box;max-width:100%}
 .channels-view .carousel-track::-webkit-scrollbar,.video-feed-overlay .carousel-track::-webkit-scrollbar{display:none}
+
+.channel-info-simple{position:relative;padding-top:4px;max-height:35dvh}.channel-info-simple>.secondary{float:right;margin:0 0 8px 12px!important;padding:6px 10px!important}.channel-description{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0 12px;line-height:1.5}.channel-info-simple>.channel-toolbar{margin-top:8px!important}
