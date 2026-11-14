@@ -1,4 +1,6 @@
 "use client";
+import {RoundRecorder} from "./round-recorder";
+import type {MessageReply} from "./encrypted-message";
 import {GifPicker} from "./gif-picker";
 import type {Attachment} from "./media";
 
@@ -1209,6 +1211,9 @@ function Conversation({
   onPerson: (u: User) => void;
 }) {
 
+  const [reply,setReply]=useState<MessageReply|null>(null),[pins,setPins]=useState<Message[]>([]),[showPins,setShowPins]=useState(false);
+  useEffect(()=>{let live=true;const load=()=>{if(!document.hidden)void api<Message[]>(`chats/${chat.id}/pins`).then(rows=>{if(live)setPins(rows)}).catch(()=>{})};load();const timer=setInterval(load,10000);return()=>{live=false;clearInterval(timer)}},[chat.id]);
+  async function pin(message:Message){try{setPins(await api<Message[]>(`chats/${chat.id}/pins`+(pins.some(p=>p.id===message.id)?"/"+message.id:""),pins.some(p=>p.id===message.id)?'DELETE':'POST',{messageId:message.id}))}catch(e){setError(errorText(e))}}
   const [files, setFiles] = useState<File[]>([]),
     [keyWarning, setKeyWarning] = useState<{
       value: string;
@@ -1298,7 +1303,7 @@ function Conversation({
       const attachments = await uploadFiles(files, chat.id);
       const envelope = await encryptMessage(
         chat.id,
-        { body, attachments },
+        { body, attachments, ...(reply?{reply}:{}) },
         devices,
       );
       await api(`chats/${chat.id}/messages`, "POST", {
@@ -1308,6 +1313,7 @@ function Conversation({
       });
       setFiles([]);
       setBody("");
+      setReply(null);
       nearBottom.current = true;
       merge(await api<Message[]>(`chats/${chat.id}/messages`));
     } catch (e) {
@@ -1383,6 +1389,7 @@ function Conversation({
           ))}
         </div>
       )}
+      {pins.length>0&&<section className="chat-pins"><button type="button" onClick={()=>setShowPins(!showPins)}>Закреплённые сообщения · {pins.length}</button>{showPins&&<div className="chat-pins-list">{pins.map(m=><article key={m.id}><strong>{m.author.name}</strong>{m.poll_id?<span>Опрос</span>:m.baton_amount?<span>{m.baton_amount} БАТОНчиков</span>:<EncryptedMessage message={m} chatId={chat.id} userId={user.id}/>}<button type="button" onClick={()=>void pin(m)}>Открепить</button></article>)}</div>}</section>}
       <div
         className="messages"
         ref={scroll}
@@ -1408,7 +1415,7 @@ function Conversation({
         )}
         {messages.map((m) => (
           <div
-            key={m.id}
+            key={m.id} id={"message-"+m.id}
             className={`message ${m.user_id === user.id ? "own" : ""}`}
           >
             {chat.is_group && m.user_id !== user.id && (
@@ -1416,18 +1423,18 @@ function Conversation({
                 <UserName user={m.author} />
               </strong>
             )}
-            {m.baton_amount?<TransferReceipt amount={m.baton_amount} own={m.user_id===user.id}/>:m.poll_id?<InlinePoll id={m.poll_id} user={user} chatId={chat.id}/>:<EncryptedMessage message={m} chatId={chat.id} userId={user.id} />}
+            {m.baton_amount?<TransferReceipt amount={m.baton_amount} own={m.user_id===user.id}/>:m.poll_id?<InlinePoll id={m.poll_id} user={user} chatId={chat.id}/>:<EncryptedMessage message={m} chatId={chat.id} userId={user.id} onReply={setReply} />}
             <Reactions
               path={"messages/" + m.id}
               initial={m.reactions}
               user={user}
             />
-            <time title={time(m.created_at)}>
+            <div className="message-footer"><button type="button" onClick={()=>void pin(m)}>{pins.some(p=>p.id===m.id)?"Открепить":"Закрепить"}</button>{(m.poll_id||m.baton_amount)&&<button type="button" onClick={()=>setReply({id:m.id,name:m.author.name,body:m.poll_id?"Опрос":"Перевод БАТОНчиков"})}>Ответить</button>}<time dateTime={m.created_at} title={time(m.created_at)}>
               {new Intl.DateTimeFormat("ru", {
                 hour: "2-digit",
                 minute: "2-digit",
               }).format(new Date(m.created_at))}
-            </time>
+            </time></div>
           </div>
         ))}
       </div>
@@ -1458,7 +1465,8 @@ function Conversation({
       <div className="chat-files">
         <FilePicker files={files} onChange={setFiles} disabled={busy} chat inputId="chat-file-input" />
       </div>
-      <form className="message-form" onSubmit={send}>{!chat.is_group&&<TransferButton chatId={chat.id} name={chat.participants.find(p=>p.id!==user.id)?.name||"Собеседник"} onSent={()=>{void api<Message[]>(`chats/${chat.id}/messages`).then(merge).catch(e=>setError(errorText(e)))}}/>}<VoiceRecorder disabled={busy||files.length>=4||(!user.plus_active&&!user.mini_active)} onFile={file=>setFiles(current=>[...current,file].slice(0,4))}/>
+      {reply&&<div className="reply-draft"><div><strong>Ответ · {reply.name}</strong><p>{reply.body}</p></div><button type="button" onClick={()=>setReply(null)} aria-label="Отменить ответ">×</button></div>}
+      <form className="message-form" onSubmit={send}><RoundRecorder disabled={busy||files.length>=4} onFile={file=>setFiles(current=>[...current,file].slice(0,4))}/>{!chat.is_group&&<TransferButton chatId={chat.id} name={chat.participants.find(p=>p.id!==user.id)?.name||"Собеседник"} onSent={()=>{void api<Message[]>(`chats/${chat.id}/messages`).then(merge).catch(e=>setError(errorText(e)))}}/>}<VoiceRecorder disabled={busy||files.length>=4||(!user.plus_active&&!user.mini_active)} onFile={file=>setFiles(current=>[...current,file].slice(0,4))}/>
         <label className="message-attach icon-button" htmlFor="chat-file-input" title="Прикрепить файл"><Paperclip size={21}/><span className="sr-only">Прикрепить файл</span></label>
         <textarea
           placeholder="Напиши что-нибудь…"

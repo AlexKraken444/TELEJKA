@@ -47,6 +47,9 @@ export function Channels({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [query, setQuery] = useState("");
+  const timeline=useRef<HTMLDivElement>(null),atBottom=useRef(true);
+  useEffect(()=>{atBottom.current=true},[selected]);
+  useEffect(()=>{if(atBottom.current&&timeline.current)timeline.current.scrollTop=timeline.current.scrollHeight},[posts]);
   const postRequest = useRef<string | null>(null);
   const loadList = () => api<Channel[]>("channels").then(setChannels);
   async function load(id: string) {
@@ -73,7 +76,7 @@ export function Channels({
         ]);
         if (active) {
           setChannel(c);
-          setPosts(p);
+          setPosts(old=>[...p,...old.filter(item=>!p.some(n=>n.id===item.id)&&item.created_at<(p.at(-1)?.created_at||""))]);
         }
       } catch (e) {
         if (active) setError(errorText(e));
@@ -101,7 +104,7 @@ export function Channels({
     }
   }
   return (
-    <section className="channels-view section-pad">
+    <section className={"channels-view section-pad"+(selected?" channel-conversation":"")}>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -206,8 +209,9 @@ export function Channels({
                       color: "var(--green)",
                     }}
                   />
-                  <h2>{channel.title}</h2>
+                  <div><h2>{channel.title}</h2><small>{channel.subscribers} подписчиков</small></div>
                 </div>
+                <details className="channel-info"><summary>О канале и настройки</summary>
                 {channel.owner_id === user.id && (
                   <button
                     className="secondary"
@@ -346,10 +350,70 @@ export function Channels({
                     </button>
                   )}
                 </div>
+                </details>
               </header>
+              <div className="channel-timeline" ref={timeline} onScroll={()=>{const el=timeline.current;if(el)atBottom.current=el.scrollHeight-el.scrollTop-el.clientHeight<100}}>
+              {posts.length >= 30 && (
+                <button
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() =>
+                    act(async () => {
+                      const more = await api<Entry[]>(
+                        "channels/" +
+                          channel.id +
+                          "/posts?before=" +
+                          encodeURIComponent(posts.at(-1)!.created_at),
+                      );
+                      const el=timeline.current,oldHeight=el?.scrollHeight||0;atBottom.current=false;
+                      setPosts((old) => [
+                        ...old,
+                        ...more.filter((x) => !old.some((p) => p.id === x.id)),
+                      ]);
+                      requestAnimationFrame(()=>{if(el)el.scrollTop+=el.scrollHeight-oldHeight});
+                    })
+                  }
+                >
+                  Ранее
+                </button>
+              )}
+              {!posts.length && <p className="muted">Публикаций пока нет.</p>}
+              {[...posts].reverse().map((p) => (
+                <article className="settings-card channel-post" key={p.id}>
+                  <strong>{channel.title}</strong>
+                  <p>{p.body}</p>
+                  <MediaList items={p.attachments} />
+                  <time dateTime={p.created_at} title={new Date(p.created_at).toLocaleString("ru")}>{new Date(p.created_at).toLocaleDateString("ru",{day:"numeric",month:"short"})} · {new Date(p.created_at).toLocaleTimeString("ru",{hour:"2-digit",minute:"2-digit"})}</time>
+                  <ChannelComments
+                    path={
+                      "channels/" + channel.id + "/posts/" + p.id + "/comments"
+                    }
+                    count={p.comment_count}
+                  />
+                  {channel.owner_id === user.id && (
+                    <button
+                      className="text-button"
+                      disabled={busy}
+                      onClick={() => {
+                        if (confirm("Удалить публикацию?"))
+                          act(async () => {
+                            await api(
+                              "channels/" + channel.id + "/posts/" + p.id,
+                              "DELETE",
+                            );
+                            await load(channel.id);
+                          });
+                      }}
+                    >
+                      Удалить
+                    </button>
+                  )}
+                </article>
+              ))}
+              </div>
               {channel.owner_id === user.id && (
                 <form
-                  className="settings-card"
+                  className="channel-compose"
                   onSubmit={(e) => {
                     e.preventDefault();
                     act(async () => {
@@ -388,61 +452,7 @@ export function Channels({
                   </button>
                 </form>
               )}
-              {!posts.length && <p className="muted">Публикаций пока нет.</p>}
-              {posts.map((p) => (
-                <article className="settings-card channel-post" key={p.id}>
-                  <strong>{channel.title}</strong>
-                  <p>{p.body}</p>
-                  <MediaList items={p.attachments} />
-                  <small>{new Date(p.created_at).toLocaleString("ru")}</small>
-                  <ChannelComments
-                    path={
-                      "channels/" + channel.id + "/posts/" + p.id + "/comments"
-                    }
-                    count={p.comment_count}
-                  />
-                  {channel.owner_id === user.id && (
-                    <button
-                      className="text-button"
-                      disabled={busy}
-                      onClick={() => {
-                        if (confirm("Удалить публикацию?"))
-                          act(async () => {
-                            await api(
-                              "channels/" + channel.id + "/posts/" + p.id,
-                              "DELETE",
-                            );
-                            await load(channel.id);
-                          });
-                      }}
-                    >
-                      Удалить
-                    </button>
-                  )}
-                </article>
-              ))}
-              {posts.length >= 30 && (
-                <button
-                  className="secondary"
-                  disabled={busy}
-                  onClick={() =>
-                    act(async () => {
-                      const more = await api<Entry[]>(
-                        "channels/" +
-                          channel.id +
-                          "/posts?before=" +
-                          encodeURIComponent(posts.at(-1)!.created_at),
-                      );
-                      setPosts((old) => [
-                        ...old,
-                        ...more.filter((x) => !old.some((p) => p.id === x.id)),
-                      ]);
-                    })
-                  }
-                >
-                  Ранее
-                </button>
-              )}
+
             </>
           ) : (
             <p>Загрузка канала…</p>

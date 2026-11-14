@@ -1,3 +1,4 @@
+import {messagePinsApi} from "./message-pins-api";
 import {gifLibraryApi} from "./gif-library-api";
 import {editShareApi} from './edit-share-api';
 import {presenceApi} from "./presence-api";
@@ -59,6 +60,7 @@ export async function featureApi(
 ): Promise<Response | undefined> {
   const sql = db(),
     route = path.join("/");
+  const pinsResponse=await messagePinsApi(req,path,input,userId);if(pinsResponse)return pinsResponse;
   const gifResponse=await gifLibraryApi(req,path,input,userId);if(gifResponse)return gifResponse;
   const editResponse=await editShareApi(req,path,input,userId);if(editResponse)return editResponse;
   const presenceResponse=await presenceApi(req,path,input,userId);if(presenceResponse)return presenceResponse;

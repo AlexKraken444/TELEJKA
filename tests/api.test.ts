@@ -344,6 +344,23 @@ test(
     assert.equal((await request('chats/'+direct.body.id+'/messages/'+editable.body.id,'PATCH',{envelope:changedEnvelope},alice.cookie)).status,200);
     const changed=(await request('chats/'+direct.body.id+'/messages','GET',undefined,bob.cookie)).body.find((m:any)=>m.id===editable.body.id);assert.ok(changed.edited_at);assert.equal((await decryptMessage<any>(direct.body.id,changed.envelope,identities[1])).body,'После правки');
 
+    // Shared pins cannot expose messages to outsiders or accept cross-chat IDs.
+    const pinsPath='chats/'+direct.body.id+'/pins';
+    assert.equal((await request(pinsPath,'POST',{messageId:editable.body.id},outsider.cookie)).status,404);
+    assert.equal((await request(pinsPath,'POST',{messageId:crypto.randomUUID()},alice.cookie)).status,404);
+    assert.equal((await request(pinsPath,'POST',{messageId:editable.body.id},alice.cookie)).status,200);
+    assert.equal((await request(pinsPath,'POST',{messageId:editable.body.id},bob.cookie)).body.length,1);
+    const pinned=await request(pinsPath,'GET',undefined,bob.cookie);assert.equal(pinned.body[0].id,editable.body.id);assert.ok(pinned.body[0].envelope);
+    assert.equal((await request(pinsPath,'GET',undefined,outsider.cookie)).status,404);
+    assert.equal((await request(pinsPath+'/'+editable.body.id,'DELETE',undefined,outsider.cookie)).status,404);
+    assert.equal((await request(pinsPath+'/'+editable.body.id,'DELETE',undefined,bob.cookie)).body.length,0);
+    const replyContent={body:'Ответ',attachments:[],reply:{id:editable.body.id,name:'Автор',body:'После правки'}};
+    const replyEnvelope=await encryptMessage(direct.body.id,replyContent,devices.slice(0,2));
+    const replyResult=await request('chats/'+direct.body.id+'/messages','POST',{envelope:replyEnvelope,clientId:crypto.randomUUID()},alice.cookie);assert.equal(replyResult.status,201);
+    const replied=(await request('chats/'+direct.body.id+'/messages','GET',undefined,bob.cookie)).body.find((m:any)=>m.id===replyResult.body.id);
+    assert.deepEqual(await decryptMessage(direct.body.id,replied.envelope,identities[1]),replyContent);assert.ok(!JSON.stringify(replied.envelope).includes('После правки'));
+    await db.query('DELETE FROM messages WHERE id=$1',[replyResult.body.id]);
+
     // Calls: encrypted signaling, access controls, busy state, timeout and teardown.
     const callId=crypto.randomUUID();
     const callOffer=await encryptMessage(callId,{callId,description:{type:'offer',sdp:'private-sdp'}},devices.slice(0,2));

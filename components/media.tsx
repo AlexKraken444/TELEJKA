@@ -1,4 +1,5 @@
 "use client";
+import {TelejkaPlayer} from "./telejka-player";
 import {useVideoAmbient} from "./use-video-ambient";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Paperclip, X } from "lucide-react";
@@ -102,7 +103,7 @@ function DraftPreview({ file }: { file: File }) {
   return file.type.startsWith("image/") ? (
     <img src={url} alt={file.name} />
   ) : (
-    <video src={url} controls playsInline preload="metadata" />
+    <TelejkaPlayer src={url} name={file.name} round={file.name.startsWith("Кружок-")} preload="metadata" />
   );
 }
 export async function uploadFiles(
@@ -165,6 +166,7 @@ async function fetchAttachment(item:Attachment):Promise<Blob>{
 }
 function Media({ item,onOpenVideo }: { item: Attachment;onOpenVideo?:(file:Attachment)=>void }) {
   const video = useRef<HTMLVideoElement>(null);
+  const [downloadMenu,setDownloadMenu]=useState(false);
   const root = useRef<HTMLDivElement>(null),
     alive = useRef(true),
     loading = useRef(false);
@@ -219,10 +221,11 @@ function Media({ item,onOpenVideo }: { item: Attachment;onOpenVideo?:(file:Attac
       {url ? (
         <>
           {publicTypes.includes(item.mime) && item.mime.startsWith("image/") ? (
-            <img src={url} alt={item.name} decoding="async" />
+            <button type="button" className="media-image-button" aria-label="Действия с изображением" onClick={()=>setDownloadMenu(!downloadMenu)}><img src={url} alt={item.name} decoding="async" /></button>
           ) : publicTypes.includes(item.mime) &&
             item.mime.startsWith("video/") ? (
-            <video
+            <TelejkaPlayer
+              name={item.name} round={item.name.startsWith("Кружок-")}
               ref={video}
               src={url}
               controls={!onOpenVideo}
@@ -231,14 +234,12 @@ function Media({ item,onOpenVideo }: { item: Attachment;onOpenVideo?:(file:Attac
               preload="metadata"
               onError={() =>
                 setError(
-                  "Браузер не поддерживает это видео. Его можно скачать по ссылке ниже.",
+                  "Браузер не поддерживает это видео. Его можно скачать через меню файла.",
                 )
               }
             />
-          ) : item.mime.startsWith("audio/") ? <audio src={url} controls preload="metadata" aria-label="Голосовое сообщение"/> : null}
-          <a className="text-button" href={url} download={item.name}>
-            Скачать {item.name}
-          </a>
+          ) : item.mime.startsWith("audio/") ? <TelejkaPlayer audio src={url} name={item.name} preload="metadata" aria-label="Голосовое сообщение"/> : null}
+          {!inline&&<button type="button" onClick={()=>setDownloadMenu(!downloadMenu)}>{item.name}</button>}{downloadMenu&&<div className="media-download-menu"><a href={url} download={item.name}>Скачать</a><button type="button" onClick={()=>setDownloadMenu(false)}>Закрыть</button></div>}
         </>
       ) : inline && !error ? (
         <div className="media-placeholder" role="status">

@@ -1,4 +1,5 @@
 "use client";
+import {TelejkaPlayer} from "./telejka-player";
 import {GifPicker} from "./gif-picker";
 import {useVideoAmbient} from "./use-video-ambient";
 import { useEffect, useRef, useState } from "react";
@@ -331,7 +332,8 @@ function ClipPlayer({
   return (
     <>
       {url ? (
-        <video
+        <TelejkaPlayer
+          name={file.name}
           ref={video}
           src={url}
           muted={muted}

@@ -1,4 +1,5 @@
 "use client";
+import {TelejkaPlayer} from "./telejka-player";
 import { useEffect, useState } from "react";
 import { api, errorText } from "./shared";
 import { uploadFiles, type Attachment } from "./media";
@@ -65,7 +66,7 @@ export function ProfileMusic({
       </div>
       {track &&
         (url ? (
-          <audio
+          <TelejkaPlayer audio name={track.name}
             controls
             src={url}
             preload="metadata"
