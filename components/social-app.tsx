@@ -106,6 +106,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     [chatId, setChatId] = useState<string | null>(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    if(params.get('view')==='videos')setTab('videos');
     if(params.has('channel'))setTab('chats');
     const chat = params.get('chat');
     if (params.get('account') === initialUser.id && chat && /^[0-9a-f-]{36}$/i.test(chat)) {

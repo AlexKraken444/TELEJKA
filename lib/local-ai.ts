@@ -1,8 +1,9 @@
 export type AiMessage={role:'system'|'user'|'assistant';content:string};
-let worker:Worker|null=null,pending:{id:string;resolve:(s:string)=>void;reject:(e:Error)=>void;progress:(s:string)=>void;timer:ReturnType<typeof setTimeout>}|null=null;
-export function stopAI(){worker?.terminate();worker=null;if(pending){clearTimeout(pending.timer);pending.reject(Error('Остановлено.'));pending=null}}
-export function askAI(messages:AiMessage[],progress:(s:string)=>void,mode='chat'):Promise<string>{
- if(pending)return Promise.reject(Error('ИИ уже занят. Дождитесь ответа или остановите его.'));
- if(typeof Worker==='undefined')return Promise.reject(Error('Этот браузер не поддерживает локальный ИИ.'));
- return new Promise((resolve,reject)=>{try{if(!worker){worker=new Worker('/telejka-ai-worker.js',{type:'module'});worker.onmessage=({data})=>{if(!pending||pending.id!==data.id)return;if(data.status){pending.progress(data.status);return}const p=pending;pending=null;clearTimeout(p.timer);if(data.error)p.reject(Error(data.error));else p.resolve(data.text)};worker.onerror=()=>{const p=pending;pending=null;worker?.terminate();worker=null;if(p){clearTimeout(p.timer);p.reject(Error('Не удалось загрузить локальный ИИ. Проверьте соединение.'))}}}const id=crypto.randomUUID();pending={id,resolve,reject,progress,timer:setTimeout(()=>stopAI(),600000)};worker.postMessage({id,messages,mode})}catch{pending=null;reject(Error('Не удалось запустить ИИ в этом браузере.'))}})
+let active:AbortController|null=null;
+export function stopAI(){active?.abort();}
+export async function askAI(messages:AiMessage[],progress:(s:string)=>void,mode='chat'):Promise<string>{
+ if(active)throw Error('ИИ уже занят. Дождитесь ответа или остановите его.');
+ const controller=new AbortController();active=controller;const timer=setTimeout(()=>controller.abort(),55000);
+ try{progress('TELEJKA AI отвечает…');const response=await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:messages.filter(m=>m.role!=='system'),mode,service:location.pathname.startsWith('/youtelejka')?'you':'telejka'}),signal:controller.signal});const result=await response.json();if(!response.ok)throw Error(result.error||'ИИ временно недоступен.');return result.text;
+ }catch(e){if(controller.signal.aborted)throw Error('Запрос остановлен или время ожидания истекло.');throw e;}finally{clearTimeout(timer);if(active===controller)active=null;}
 }

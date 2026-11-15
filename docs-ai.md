@@ -1,9 +1,5 @@
-# TELEJKA AI
-
-Local inference runs in a dedicated module worker using Transformers.js 3.8.1 and onnx-community/Qwen2.5-1.5B-Instruct (revision d54957e3af1be04546436e874a60fe386041b244), q8 on single-threaded WebAssembly. No API keys or inference server are required. Model and runtime downloads use Hugging Face and jsDelivr. Model weights are browser-cached; approximate initial download is 1.6 GB. No model download occurs just from opening the feed.
-
-Prompts stay in the browser. Chat history is localStorage scoped to the authenticated account ID, bounded to 60 entries. It is not synchronized. Chat context is bounded to 6000 characters. Editing uses at most 2000 selected characters and requires explicit acceptance before replacing the original selection. Requests are serialized per tab and can be stopped by terminating the worker.
-
-A compact local model can make mistakes, including Russian punctuation and style. The UI must retain review-before-apply and honest device/memory limitations. There is no guarantee of support on low-memory phones. No access to real-time web information.
-
-Source and license: https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct (Apache-2.0); ONNX weights https://huggingface.co/onnx-community/Qwen2.5-1.5B-Instruct .
+# Cloud TELEJKA AI
+Set GROQ_API_KEY in the TELEJKA Vercel project and redeploy. Optional GROQ_MODEL defaults to openai/gpt-oss-120b. Never use NEXT_PUBLIC_ for secrets.
+No model downloads. AI chat or selected text is sent to Groq, not other chats. Old local-model history remains under its old storage key and is not used as cloud context.
+Requests require a session, same-origin check and bounded input. The 6 requests/minute/user limiter is per instance; provider quotas apply globally. Stay on the Free plan with paid billing disabled if charges are unwanted. There is no paid fallback.
+Without a valid key the UI reports that AI is not connected. Live model quality is not verified until a key is configured.
