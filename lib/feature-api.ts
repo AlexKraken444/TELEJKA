@@ -1,3 +1,4 @@
+import {videoDetailsSchema} from './video-details';
 import {messagePinsApi} from "./message-pins-api";
 import {gifLibraryApi} from "./gif-library-api";
 import {editShareApi} from './edit-share-api';
@@ -42,7 +43,7 @@ export async function attachmentMetadata(
   if (!list.length) return [];
   const sql = db();
   const rows =
-    await sql`SELECT id,name,mime,size FROM uploads WHERE id IN ${sql(list)} AND owner_id=${userId} AND ready=true AND published=false AND chat_id IS NOT DISTINCT FROM ${chatId}::uuid`;
+    await sql`SELECT id,name,mime,size,video_data FROM uploads WHERE id IN ${sql(list)} AND owner_id=${userId} AND ready=true AND published=false AND chat_id IS NOT DISTINCT FROM ${chatId}::uuid`;
   if (rows.length !== list.length)
     throw new FeatureError(400, "Вложения недоступны или ещё загружаются.");
   return list.map((id) => rows.find((row)=>row.id===id)!).map((r) => ({
@@ -50,6 +51,7 @@ export async function attachmentMetadata(
     name: r.name,
     mime: r.mime,
     size: r.size,
+    category:r.video_data?.category,
   }));
 }
 export async function featureApi(
@@ -206,6 +208,8 @@ export async function featureApi(
           mime: file.mime,
           size: file.size,
           chunks: file.chunks,
+          owned:file.owner_id===userId,
+          videoData:file.video_data,
         });
       const idx = z.coerce
         .number()
@@ -220,6 +224,12 @@ export async function featureApi(
     }
     if (file.owner_id !== userId)
       throw new FeatureError(404, "Файл не найден.");
+    if(req.method==='POST'&&path[2]==='video-details'){
+      if(!file.ready||file.chat_id||!String(file.mime).startsWith('video/'))throw new FeatureError(400,'Видео недоступно для обработки.');
+      const details=videoDetailsSchema.parse(input);
+      await sql`UPDATE uploads SET video_data=${sql.json(details)} WHERE id=${uploadId}`;
+      return reply({ok:true});
+    }
     if (req.method === "POST" && path[2] === "complete") {
       const [count] =
         await sql`SELECT count(*)::int n,COALESCE(sum(octet_length(data)),0)::int size FROM upload_chunks WHERE upload_id=${uploadId}`;

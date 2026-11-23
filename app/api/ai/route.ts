@@ -16,7 +16,7 @@ export async function POST(req:NextRequest){
  const {messages,mode,service}=parsed.data;if(messages.reduce((n,m)=>n+m.content.length,0)>12000||messages.at(-1)?.role!=='user')return json({error:'Слишком длинная или некорректная переписка.'},400);
  const token=req.cookies.get(service==='you'?'youtelejka_session':'telejka_session')?.value;if(!token||!/^[a-f0-9]{64}$/.test(token))return json({error:'Войдите в аккаунт.'},401);
  const user=await fetchSessionUser(token);if(!user)return json({error:'Войдите в аккаунт.'},401);
- const key=process.env.GROQ_API_KEY;if(!key)return json({error:'Облачный ИИ ещё не подключён: администратору нужно настроить GROQ_API_KEY. Скачивать модель не нужно.'},503);
+ const key=process.env.GROQ_API_KEY;if(!key)return json({error:'Облачный ИИ пока недоступен. Попробуйте позже.'},503);
  const now=Date.now();for(const [id,l] of limits)if(l.until<=now)limits.delete(id);
  const limit=limits.get(user.id)||{count:0,until:now+60000};if(limit.count>=6)return json({error:'Не больше 6 запросов в минуту. Попробуйте чуть позже.'},429);limit.count++;limits.set(user.id,limit);
  const instructions={correct:'Исправь грамматику, орфографию и пунктуацию. Не меняй смысл.',book:'Перепиши в литературном книжном стиле, сохраняя смысл.',business:'Перепиши в деловом стиле, сохраняя смысл.',church:'Перепиши в торжественном церковном стиле, сохраняя смысл.'};

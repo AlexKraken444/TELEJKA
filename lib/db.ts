@@ -45,6 +45,7 @@ export function ensureDatabase() {
           await tx`INSERT INTO telejka_migrations(name) VALUES ('encrypted-media-v1')`;
         }
         await tx`CREATE TABLE IF NOT EXISTS profile_music(user_id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,upload_id uuid NOT NULL REFERENCES uploads(id) ON DELETE CASCADE)`;
+        await tx`ALTER TABLE uploads ADD COLUMN IF NOT EXISTS video_data jsonb`;
         const [callsDone]=await tx`SELECT 1 FROM telejka_migrations WHERE name='voice-calls-v1'`;
         if(!callsDone){await tx.unsafe(await readFile(join(process.cwd(),'db','calls.sql'),'utf8'));await tx`INSERT INTO telejka_migrations(name) VALUES ('voice-calls-v1')`;}
         const [pushDone]=await tx`SELECT 1 FROM telejka_migrations WHERE name='web-push-v1'`;

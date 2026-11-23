@@ -1490,6 +1490,15 @@ test(
 
     // Shared GIFs survive deletion of the post that uses them; PLUS is enforced server-side.
     const gifBytes=Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7','base64');
+    const videoUpload=await request('uploads','POST',{name:'Test.mp4',mime:'video/mp4',size:1,chatId:null},alice.cookie);
+    const vid=videoUpload.body.id;await request('uploads/'+vid+'/0','POST',{data:'YQ=='},alice.cookie);await request('uploads/'+vid+'/complete','POST',{},alice.cookie);
+    const vd={category:'Обучение',segments:[{start:0,end:1,text:'Тест речи'}],summary:'Краткий тест',language:'ru'};
+    assert.equal((await request('uploads/'+vid+'/video-details','POST',vd,bob.cookie)).status,404);
+    assert.equal((await request('uploads/'+vid+'/video-details','POST',vd,alice.cookie)).status,200);
+    assert.deepEqual((await request('uploads/'+vid,'GET',undefined,alice.cookie)).body.videoData,vd);
+    assert.equal((await request('uploads/'+vid,'GET',undefined,bob.cookie)).status,404);
+    const vp=await request('posts','POST',{body:'Видео тест',attachmentIds:[vid]},alice.cookie);assert.equal(vp.status,201,JSON.stringify(vp.body));
+    const byCategory=await request('posts?videos=true&category='+encodeURIComponent('Обучение'),'GET',undefined,alice.cookie);assert.ok(byCategory.body.some((p:any)=>p.attachments.some((a:any)=>a.id===vid)));
     const gifUpload=await request('uploads','POST',{name:'Тест.gif',mime:'image/gif',size:gifBytes.length,chatId:null},alice.cookie);
     assert.equal(gifUpload.status,201);
     const gifId=gifUpload.body.id;
