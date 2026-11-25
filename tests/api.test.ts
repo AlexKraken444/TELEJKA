@@ -119,6 +119,34 @@ test(
       accounts.push({ id: res.body.id, cookie: res.cookie.split(";")[0] });
     }
     const [alice, bob, vera, outsider] = accounts;
+    // MUSIC releases and playlists use the same authenticated users.
+    const musicFiles=[];
+    for(const mime of ['image/png','audio/mpeg','audio/mpeg']){
+      const f=await db.query("INSERT INTO uploads(owner_id,name,mime,size,chunks,ready,published) VALUES($1,'music fixture',$2,10,1,true,false) RETURNING id",[alice.id,mime]);
+      musicFiles.push((f.rows[0] as {id:string}).id);
+    }
+    assert.equal((await request('music/releases','POST',{title:'Album',tracks:[]},alice.cookie)).status,400);
+    const releaseInput={title:'Album',cover:musicFiles[0],tracks:[{title:'First',uploadId:musicFiles[1]},{title:'Second',uploadId:musicFiles[2]}]};
+    assert.equal((await request('music/releases','POST',releaseInput,bob.cookie)).status,400);
+    const releaseResult=await request('music/releases','POST',releaseInput,alice.cookie);
+    assert.equal(releaseResult.status,200,JSON.stringify(releaseResult.body));
+    assert.equal((await request('music/releases','POST',releaseInput,alice.cookie)).status,400);
+    const musicRows=await request('music/tracks','GET',undefined,bob.cookie);
+    assert.equal(musicRows.status,200,JSON.stringify(musicRows.body));
+    assert.deepEqual(musicRows.body.map((x:{title:string})=>x.title),['First','Second']);
+    const songId=musicRows.body[0].id;
+    assert.equal((await request('music/tracks/'+songId,'GET',undefined,bob.cookie)).body[0].title,'First');
+    assert.equal((await request('music/tracks/'+songId+'/like','POST',{},bob.cookie)).status,200);
+    assert.equal((await request('music/tracks?liked=true','GET',undefined,bob.cookie)).body.length,1);
+    const playlistResult=await request('music/playlists','POST',{title:'Favourites'},bob.cookie);
+    assert.equal(playlistResult.status,200);
+    const playlistPath='music/playlists/'+playlistResult.body.id;
+    assert.equal((await request(playlistPath+'/'+songId,'POST',{},alice.cookie)).status,404);
+    assert.equal((await request(playlistPath+'/'+songId,'POST',{},bob.cookie)).status,200);
+    assert.equal((await request(playlistPath,'GET',undefined,bob.cookie)).body[0].track_id,songId);
+    assert.equal((await request(playlistPath+'/'+songId,'DELETE',{},bob.cookie)).status,200);
+    assert.equal((await request(playlistPath,'GET',undefined,bob.cookie)).body.length,0);
+
     assert.equal((await request('follows/'+bob.id,'POST',{},alice.cookie)).body.followers,1);
     assert.equal((await request('follows/'+bob.id,'POST',{},alice.cookie)).body.followers,1);
     assert.equal((await request('follows/'+alice.id,'POST',{},alice.cookie)).status,400);

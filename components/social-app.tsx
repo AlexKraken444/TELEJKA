@@ -202,6 +202,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           <Plus size={20} />
           <span>Написать пост</span>
         </button>
+        <a className="secondary" href="/music" target="_blank" rel="noopener">Telejka MUSIC ↗</a>
         <button className="secondary" onClick={()=>window.open("/youtelejka","YouTelejka","popup,width=1280,height=860")}>YouTelejka ↗</button>
         <div className="sidebar-bottom">
           <ThemeToggle />
@@ -234,7 +235,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
       <main className={`main-content view-${tab} ${tab === "chats" ? "chat-main" : ""}`}>
         <div className="mobile-brand">
           <Logo />
-          <button className="you-mobile-launch" onClick={()=>window.open("/youtelejka","YouTelejka","popup,width=1280,height=860")}>YouTelejka</button><button className="icon-button mobile-right-toggle" aria-label="Хэштеги и люди" onClick={()=>setRightOpen(!rightOpen)}><Hash size={20}/></button><ThemeToggle />
+          <a className="you-mobile-launch" href="/music" target="_blank" rel="noopener">MUSIC</a><button className="you-mobile-launch" onClick={()=>window.open("/youtelejka","YouTelejka","popup,width=1280,height=860")}>YouTelejka</button><button className="icon-button mobile-right-toggle" aria-label="Хэштеги и люди" onClick={()=>setRightOpen(!rightOpen)}><Hash size={20}/></button><ThemeToggle />
         </div>
         {error && (
           <div className="error global-error" role="alert">

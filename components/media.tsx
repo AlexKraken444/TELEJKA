@@ -23,7 +23,7 @@ const publicTypes = [
   "video/ogg",
   "video/quicktime",
 ];
-const inlineTypes = [...publicTypes,"audio/webm","audio/mp4","audio/ogg","audio/mpeg","audio/wav"];
+const inlineTypes = [...publicTypes,"audio/webm","audio/mp4","audio/ogg","audio/mpeg","audio/wav","audio/x-wav"];
 export function FilePicker({
   files,
   onChange,
@@ -122,6 +122,7 @@ export async function uploadFiles(
         name: chatId ? "encrypted" : file.name.slice(0, 160),
         mime: chatId ? "application/octet-stream" : file.type,
         size: data.byteLength,
+        music: !chatId && window.location.pathname.startsWith('/music'),
         voice: !!chatId && file.name.startsWith("Голосовое-"),
         chatId,
       },

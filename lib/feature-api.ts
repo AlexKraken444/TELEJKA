@@ -1,3 +1,4 @@
+import {musicApi} from './music-api';
 import {videoDetailsSchema} from './video-details';
 import {messagePinsApi} from "./message-pins-api";
 import {gifLibraryApi} from "./gif-library-api";
@@ -62,6 +63,7 @@ export async function featureApi(
 ): Promise<Response | undefined> {
   const sql = db(),
     route = path.join("/");
+  const musicResponse=await musicApi(req,path,input,userId);if(musicResponse)return musicResponse;
   const pinsResponse=await messagePinsApi(req,path,input,userId);if(pinsResponse)return pinsResponse;
   const gifResponse=await gifLibraryApi(req,path,input,userId);if(gifResponse)return gifResponse;
   const editResponse=await editShareApi(req,path,input,userId);if(editResponse)return editResponse;
@@ -136,6 +138,7 @@ export async function featureApi(
         mime: z.string().max(100),
         size: z.number().int().min(1).max(26214416),
         chatId: id.nullable().default(null),
+        music: z.boolean().default(false),
         voice: z.boolean().default(false),
       })
       .parse(input);
@@ -163,7 +166,7 @@ export async function featureApi(
         400,
         "Для постов и комментариев разрешены фото и видео.",
       );
-    if (!data.chatId && data.mime.startsWith("audio/")) {
+    if (!data.chatId && !data.music && data.mime.startsWith("audio/")) {
       const [me] =
         await sql`SELECT plus_until>now() active FROM users WHERE id=${userId}`;
       if (!me?.active)
@@ -197,7 +200,7 @@ export async function featureApi(
         else {
           const [visible] =
             await sql`SELECT 1 FROM posts p WHERE p.attachments @> ${sql.json([{ id: uploadId }])}::jsonb AND telejka_can_view(p.user_id,${userId}::uuid)
-          UNION ALL SELECT 1 FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.attachments @> ${sql.json([{ id: uploadId }])}::jsonb AND telejka_can_view(p.user_id,${userId}::uuid) AND telejka_can_view(c.user_id,${userId}::uuid) UNION ALL SELECT 1 FROM channel_posts cp WHERE cp.attachments @> ${sql.json([{ id: uploadId }])}::jsonb UNION ALL SELECT 1 FROM profile_music m JOIN users u ON u.id=m.user_id WHERE m.upload_id=${uploadId} AND telejka_can_view(u.id,${userId}::uuid) UNION ALL SELECT 1 FROM gif_library g WHERE g.upload_id=${uploadId} LIMIT 1`;
+          UNION ALL SELECT 1 FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.attachments @> ${sql.json([{ id: uploadId }])}::jsonb AND telejka_can_view(p.user_id,${userId}::uuid) AND telejka_can_view(c.user_id,${userId}::uuid) UNION ALL SELECT 1 FROM channel_posts cp WHERE cp.attachments @> ${sql.json([{ id: uploadId }])}::jsonb UNION ALL SELECT 1 FROM profile_music m JOIN users u ON u.id=m.user_id WHERE m.upload_id=${uploadId} AND telejka_can_view(u.id,${userId}::uuid) UNION ALL SELECT 1 FROM music_releases mr LEFT JOIN music_tracks mt ON mt.release_id=mr.id WHERE (mr.cover_id=${uploadId} OR mt.upload_id=${uploadId}) AND telejka_can_view(mr.owner_id,${userId}::uuid) UNION ALL SELECT 1 FROM gif_library g WHERE g.upload_id=${uploadId} LIMIT 1`;
           if (!visible) throw new FeatureError(404, "Файл недоступен.");
         }
       }
