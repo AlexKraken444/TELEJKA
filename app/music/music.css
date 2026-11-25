@@ -433,3 +433,17 @@
     padding: 18px;
   }
 }
+
+.music-upload-song {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.music-upload-song label {
+  flex: 1;
+  min-width: 0;
+}
+.music-upload-song small {
+  overflow-wrap: anywhere;
+  color: #a9b6ac;
+}

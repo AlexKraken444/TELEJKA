@@ -666,6 +666,7 @@ function ReleaseUpload({ onDone }: { onDone: () => void }) {
     [busy, setBusy] = useState(false),
     [status, setStatus] = useState(""),
     [error, setError] = useState("");
+  const trackPicker = useRef<HTMLInputElement>(null);
   const cached = useRef(new Map<File, Attachment>());
   async function upload(file: File) {
     const old = cached.current.get(file);
@@ -727,49 +728,72 @@ function ReleaseUpload({ onDone }: { onDone: () => void }) {
             }}
           />
         </label>
-        <label>
-          Песни · MP3, M4A, OGG или WAV, до 25 МБ каждая
+        <div>
+          <p>Песни · MP3, M4A, OGG или WAV, до 25 МБ каждая</p>
           <input
-            required
+            ref={trackPicker}
+            hidden
             type="file"
             accept="audio/mpeg,audio/mp4,audio/ogg,audio/wav,audio/x-wav"
             multiple
             onChange={(e) => {
               const files = Array.from(e.target.files || []);
+              e.target.value = "";
+              if (!files.length) return;
               if (
-                files.length > 30 ||
+                songs.length + files.length > 30 ||
                 files.some((f) => f.size > 25 * 1024 * 1024)
               ) {
-                setError("До 30 песен, каждая не больше 25 МБ.");
-                e.target.value = "";
-                setSongs([]);
+                setError(
+                  "До 30 песен, каждая не больше 25 МБ. Уже добавленные песни сохранены.",
+                );
                 return;
               }
-              setSongs(
-                files.map((file) => ({
+              setError("");
+              setSongs((old) => [
+                ...old,
+                ...files.map((file) => ({
                   file,
                   title: file.name.replace(/\.[^.]+$/, ""),
                 })),
-              );
+              ]);
             }}
           />
-        </label>
+          <button
+            type="button"
+            disabled={songs.length >= 30}
+            onClick={() => trackPicker.current?.click()}
+          >
+            <Plus size={18} />
+            Добавить трек
+          </button>
+        </div>
         {songs.map((s, i) => (
-          <label key={i}>
-            {i + 1}. Название песни
-            <input
-              required
-              maxLength={150}
-              value={s.title}
-              onChange={(e) =>
-                setSongs((old) =>
-                  old.map((x, j) =>
-                    i === j ? { ...x, title: e.target.value } : x,
-                  ),
-                )
-              }
-            />
-          </label>
+          <div key={i} className="music-upload-song">
+            <label>
+              {i + 1}. Название песни
+              <input
+                required
+                maxLength={150}
+                value={s.title}
+                onChange={(e) =>
+                  setSongs((old) =>
+                    old.map((x, j) =>
+                      i === j ? { ...x, title: e.target.value } : x,
+                    ),
+                  )
+                }
+              />
+              <small>{s.file.name}</small>
+            </label>
+            <button
+              type="button"
+              aria-label={"Убрать трек " + (i + 1)}
+              onClick={() => setSongs((old) => old.filter((_, j) => j !== i))}
+            >
+              Убрать
+            </button>
+          </div>
         ))}
         <p>
           {songs.length > 1 ? "Альбом" : "Сингл"} · Общий лимит загрузок: 100 МБ
