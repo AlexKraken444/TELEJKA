@@ -60,22 +60,6 @@ export const useCalls = () => useContext(CallsContext);
 function terminal(state: string) {
   return !["ringing", "connecting", "active"].includes(state);
 }
-async function gathered(pc: RTCPeerConnection) {
-  if (pc.iceGatheringState === "complete") return;
-  await new Promise<void>((resolve) => {
-    // Non-trickle signaling must allow slower networks to finish gathering.
-    const timeout = setTimeout(done, 15000);
-    function done() {
-      clearTimeout(timeout);
-      pc.removeEventListener("icegatheringstatechange", check);
-      resolve();
-    }
-    function check() {
-      if (pc.iceGatheringState === "complete") done();
-    }
-    pc.addEventListener("icegatheringstatechange", check);
-  });
-}
 export function CallProvider({
   user,
   children,
@@ -84,7 +68,8 @@ export function CallProvider({
   children: React.ReactNode;
 }) {
   const active = useRef<Active | null>(null),
-    remote = useRef<HTMLVideoElement | null>(null),
+    remote = useRef<HTMLAudioElement | null>(null),
+    remoteVideo = useRef<HTMLVideoElement | null>(null),
     ring = useRef<HTMLAudioElement | null>(null),
     starting = useRef(false),
     polling = useRef(false),
@@ -122,6 +107,7 @@ export function CallProvider({
     }
     a?.stream?.getTracks().forEach((t) => t.stop());
     if (remote.current) remote.current.srcObject = null;
+    if (remoteVideo.current) remoteVideo.current.srcObject = null;
     setCurrent(null);
     setConnectedAt(null);
     setSecurity("");
@@ -190,10 +176,25 @@ export function CallProvider({
       iceCandidatePoolSize: 2,
     });
     stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+    let iceTimer: ReturnType<typeof setTimeout> | undefined;
+    pc.onicecandidate = () => {
+      clearTimeout(iceTimer);
+      iceTimer = setTimeout(() => {
+        if (active.current?.pc === pc)
+          window.dispatchEvent(new Event("telejka-call-ice"));
+      }, 150);
+    };
+    const received = new MediaStream();
     pc.ontrack = (e) => {
+      if (!received.getTracks().some((t) => t.id === e.track.id))
+        received.addTrack(e.track);
       const play = () => {
         if (!remote.current) return;
-        remote.current.srcObject = e.streams[0] || new MediaStream([e.track]);
+        remote.current.srcObject = received;
+        if (remoteVideo.current) {
+          remoteVideo.current.srcObject = received;
+          void remoteVideo.current.play().catch(() => {});
+        }
         remote.current.muted = false;
         remote.current.volume = 1;
         remote.current
@@ -273,7 +274,6 @@ export function CallProvider({
         throw Error("Собеседнику нужно хотя бы раз открыть TELEJKA.");
       pc = await makePeer(stream);
       await pc.setLocalDescription(await pc.createOffer());
-      await gathered(pc);
       const id = crypto.randomUUID();
       const offer = await encryptMessage(
         id,
@@ -367,7 +367,6 @@ export function CallProvider({
       a.devices = devices;
       await pc.setRemoteDescription(signal.description);
       await pc.setLocalDescription(await pc.createAnswer());
-      await gathered(pc);
       const answer = await encryptMessage(
         a.call.id,
         {
@@ -547,7 +546,8 @@ export function CallProvider({
       }
     }
     void poll();
-    const timer = setInterval(poll, 1800);
+    const timer = setInterval(poll, 1500);
+    window.addEventListener("telejka-call-ice", poll);
     const visible = () => {
       if (!document.hidden) void poll();
     };
@@ -555,6 +555,7 @@ export function CallProvider({
     return () => {
       alive = false;
       clearInterval(timer);
+      window.removeEventListener("telejka-call-ice", poll);
       document.removeEventListener("visibilitychange", visible);
       stopRing();
       active.current?.pc?.close();
@@ -608,8 +609,10 @@ export function CallProvider({
   return (
     <CallsContext.Provider value={{ start, busy: !!current || loading }}>
       {children}
+      <audio ref={remote} autoPlay playsInline />
       <video
-        ref={remote}
+        muted
+        ref={remoteVideo}
         autoPlay
         playsInline
         className={
