@@ -390,8 +390,6 @@ test(
     await db.query('DELETE FROM messages WHERE id=$1',[replyResult.body.id]);
 
     // Calls: encrypted signaling, access controls, busy state, timeout and teardown.
-    const callId=crypto.randomUUID();
-    const callOffer=await encryptMessage(callId,{callId,description:{type:'offer',sdp:'private-sdp'}},devices.slice(0,2));
     // Idle synchronization omits bodies and avatars; edits invalidate the fingerprint.
     const snapshot=await request('chats/'+direct.body.id+'/messages?sync=1','GET',undefined,alice.cookie);
     assert.equal(snapshot.status,200,JSON.stringify(snapshot.body));assert.ok(Array.isArray(snapshot.body.data));
@@ -405,7 +403,21 @@ test(
     assert.equal(chatSnapshot.status,200,JSON.stringify(chatSnapshot.body));assert.ok(Array.isArray(chatSnapshot.body.data));
     assert.equal((await request('chats?sync=1&revision='+chatSnapshot.body.revision,'GET',undefined,alice.cookie)).body.unchanged,true);
     await db.query('DELETE FROM messages WHERE id=$1',[editable.body.id]);
-    for(const route of ['calls','calls/config','streams','streams/config']){
+
+    const callId=crypto.randomUUID();
+    const callOffer=await encryptMessage(callId,{callId,description:{type:'offer',sdp:'encrypted test offer'}},devices.slice(0,2));
+    const callStart=await request('calls','POST',{id:callId,chatId:direct.body.id,deviceId:identities[0].id,offer:callOffer,video:true},alice.cookie);
+    assert.equal(callStart.status,201,JSON.stringify(callStart.body));
+    assert.equal((await request('calls','GET',undefined,bob.cookie)).body[0].video,true);
+    assert.equal((await request('calls/'+callId,'GET',undefined,outsider.cookie)).status,404);
+    const callDetails=await request('calls/'+callId,'GET',undefined,bob.cookie);
+    assert.equal(callDetails.body.offer.ciphertext,callOffer.ciphertext);
+    const callAnswer=await encryptMessage(callId,{callId,description:{type:'answer',sdp:'encrypted test answer'}},devices.slice(0,2));
+    assert.equal((await request('calls/'+callId,'POST',{action:'accept',deviceId:identities[1].id,answer:callAnswer},bob.cookie)).status,200);
+    assert.equal((await request('calls/'+callId,'POST',{action:'end',deviceId:identities[0].id},alice.cookie)).status,200);
+    const endedCall=await request('calls/'+callId,'GET',undefined,bob.cookie);
+    assert.equal(endedCall.body.state,'ended');assert.equal(endedCall.body.offer,null);assert.equal(endedCall.body.answer,null);
+    for(const route of ['streams','streams/config']){
       assert.equal((await request(route,'GET',undefined,alice.cookie)).status,410);
       assert.equal((await request(route,'POST',{},alice.cookie)).status,410);
     }

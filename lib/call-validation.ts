@@ -16,6 +16,7 @@ export const callCreateSchema = z
     chatId: z.uuid(),
     deviceId: z.uuid(),
     offer: callEnvelopeSchema,
+    video: z.boolean().default(false),
   })
   .strict();
 export const callUpdateSchema = z

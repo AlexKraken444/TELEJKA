@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "./db";
 import { FeatureError } from "./api-error";
 import { canSendChat } from "./community-api";
@@ -8,7 +8,7 @@ import {
   callIceServers,
 } from "./call-validation";
 import { z } from "zod";
-import { sendCallPush } from "./push-api";
+
 const json = (data: unknown, status = 200) =>
   NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
 async function device(userId: string, deviceId: string) {
@@ -33,7 +33,7 @@ export async function callApi(
   if (path.length === 1 && req.method === "GET") {
     const history = req.nextUrl.searchParams.get("history") === "1";
     return json(
-      await sql`SELECT c.id,c.conversation_id,c.caller_id,c.callee_id,c.caller_device,c.callee_device,c.state,c.created_at,c.answered_at,c.ended_at,telejka_user(CASE WHEN c.caller_id=${userId} THEN c.callee_id ELSE c.caller_id END,${userId}::uuid) AS peer FROM voice_calls c WHERE (c.caller_id=${userId} OR c.callee_id=${userId}) AND (${history} OR c.state IN ('ringing','connecting','active')) ORDER BY c.created_at DESC LIMIT 30`,
+      await sql`SELECT c.video,c.id,c.conversation_id,c.caller_id,c.callee_id,c.caller_device,c.callee_device,c.state,c.created_at,c.answered_at,c.ended_at,telejka_user(CASE WHEN c.caller_id=${userId} THEN c.callee_id ELSE c.caller_id END,${userId}::uuid) AS peer FROM voice_calls c WHERE (c.caller_id=${userId} OR c.callee_id=${userId}) AND (${history} OR c.state IN ('ringing','connecting','active')) ORDER BY c.created_at DESC LIMIT 30`,
     );
   }
   if (path.length === 1 && req.method === "POST") {
@@ -55,7 +55,7 @@ export async function callApi(
         "Собеседнику нужно открыть TELEJKA на своём устройстве.",
       );
     await expire(peer.user_id);
-    const created = await sql.begin(async (tx) => {
+    await sql.begin(async (tx) => {
       await tx`SELECT id FROM users WHERE id IN (${userId},${peer.user_id}) ORDER BY id FOR UPDATE`;
       const [existing] =
         await tx`SELECT caller_id,caller_device FROM voice_calls WHERE id=${d.id}`;
@@ -74,17 +74,9 @@ export async function callApi(
           409,
           "Ты или собеседник уже участвуете в звонке.",
         );
-      await tx`INSERT INTO voice_calls(id,conversation_id,caller_id,callee_id,caller_device,offer) VALUES(${d.id},${d.chatId},${userId},${peer.user_id},${d.deviceId},${tx.json(d.offer)})`;
+      await tx`INSERT INTO voice_calls(id,conversation_id,caller_id,callee_id,caller_device,offer,video) VALUES(${d.id},${d.chatId},${userId},${peer.user_id},${d.deviceId},${tx.json(d.offer)},${d.video})`;
       return true;
     });
-    if (created)
-      after(async () => {
-        try {
-          await sendCallPush(peer.user_id, d.id, d.chatId);
-        } catch {
-          console.error("Call push failed");
-        }
-      });
     return json({ id: d.id }, 201);
   }
   const callId = z.uuid().parse(path[1]);

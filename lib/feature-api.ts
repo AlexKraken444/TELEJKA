@@ -1,3 +1,4 @@
+import {callApi} from './call-api';
 import {musicApi} from './music-api';
 import {videoDetailsSchema} from './video-details';
 import {messagePinsApi} from "./message-pins-api";
@@ -69,7 +70,7 @@ export async function featureApi(
   const editResponse=await editShareApi(req,path,input,userId);if(editResponse)return editResponse;
   const presenceResponse=await presenceApi(req,path,input,userId);if(presenceResponse)return presenceResponse;
   const studioResponse=await socialStudioApi(req,path,input,userId);if(studioResponse)return studioResponse;
-  if(path[0]==="calls") return NextResponse.json({error:"Звонки отключены."},{status:410});
+  const callResponse=await callApi(req,path,input,userId);if(callResponse)return callResponse;
   const pushResponse=await pushApi(req,path,input,userId);if(pushResponse)return pushResponse;
   if (route === "devices" && req.method === "POST") {
     const data = z

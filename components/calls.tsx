@@ -2,6 +2,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   Phone,
+  Video,
+  VideoOff,
   PhoneOff,
   Mic,
   MicOff,
@@ -21,6 +23,7 @@ import {
 import type { Chat, User } from "@/lib/types";
 import { candidatesFromSdp } from "@/lib/call-candidates";
 type Call = {
+  video?: boolean;
   id: string;
   conversation_id: string;
   caller_id: string;
@@ -50,7 +53,7 @@ type Active = {
   receivedCandidates?: Set<string>;
 };
 const CallsContext = createContext<{
-  start: (chat: Chat) => void;
+  start: (chat: Chat, video?: boolean) => void;
   busy: boolean;
 }>({ start: () => {}, busy: false });
 export const useCalls = () => useContext(CallsContext);
@@ -81,7 +84,7 @@ export function CallProvider({
   children: React.ReactNode;
 }) {
   const active = useRef<Active | null>(null),
-    remote = useRef<HTMLAudioElement | null>(null),
+    remote = useRef<HTMLVideoElement | null>(null),
     ring = useRef<HTMLAudioElement | null>(null),
     starting = useRef(false),
     polling = useRef(false),
@@ -92,6 +95,7 @@ export function CallProvider({
     [status, setStatus] = useState(""),
     [error, setError] = useState(""),
     [muted, setMuted] = useState(false),
+    [cameraOff, setCameraOff] = useState(false),
     [minimized, setMinimized] = useState(false),
     [elapsed, setElapsed] = useState(0),
     [connectedAt, setConnectedAt] = useState<number | null>(null),
@@ -122,6 +126,7 @@ export function CallProvider({
     setConnectedAt(null);
     setSecurity("");
     setMuted(false);
+    setCameraOff(false);
     setMinimized(false);
     setLoading(false);
     starting.current = false;
@@ -226,7 +231,7 @@ export function CallProvider({
     };
     return pc;
   }
-  async function microphone() {
+  async function microphone(video = false) {
     if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection)
       throw Error(
         "Этот браузер не поддерживает звонки. Открой TELEJKA в Safari или Chrome по HTTPS.",
@@ -237,10 +242,17 @@ export function CallProvider({
         noiseSuppression: true,
         autoGainControl: true,
       },
-      video: false,
+      video: video
+        ? {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 24, max: 30 },
+            facingMode: "user",
+          }
+        : false,
     });
   }
-  async function start(chat: Chat) {
+  async function start(chat: Chat, video = false) {
     if (starting.current || active.current) return;
     if (chat.is_group) {
       setError("Голосовые звонки пока доступны в личных чатах.");
@@ -252,7 +264,7 @@ export function CallProvider({
     let stream: MediaStream | null = null,
       pc: RTCPeerConnection | null = null;
     try {
-      stream = await microphone();
+      stream = await microphone(video);
       const identity = await registerDevice(user.id);
       const devices = await api<PublicDevice[]>(`chats/${chat.id}/keys`);
       const other = chat.participants.find((p) => p.id !== user.id);
@@ -276,10 +288,12 @@ export function CallProvider({
         chatId: chat.id,
         deviceId: identity.id,
         offer,
+        video,
       });
       show({
         call: {
           id,
+          video,
           conversation_id: chat.id,
           caller_id: user.id,
           callee_id: other.id,
@@ -333,6 +347,7 @@ export function CallProvider({
       );
       if (signal.callId !== a.call.id || signal.description.type !== "offer")
         throw Error("Не удалось проверить защищённый звонок.");
+      stream = await microphone(!!details.video);
       const devices = await api<PublicDevice[]>(
         `chats/${a.call.conversation_id}/keys`,
       );
@@ -519,7 +534,9 @@ export function CallProvider({
               outgoing: false,
               answerApplied: false,
             });
-            setStatus("Входящий звонок");
+            setStatus(
+              incoming.video ? "Входящий видеозвонок" : "Входящий звонок",
+            );
             ringtone();
           }
         }
@@ -591,7 +608,26 @@ export function CallProvider({
   return (
     <CallsContext.Provider value={{ start, busy: !!current || loading }}>
       {children}
-      <audio ref={remote} autoPlay playsInline />
+      <video
+        ref={remote}
+        autoPlay
+        playsInline
+        className={
+          current?.video && !minimized ? "call-remote-video" : "call-audio-only"
+        }
+      />
+      {current?.video && !minimized && active.current?.stream && (
+        <video
+          className="call-local-video"
+          muted
+          autoPlay
+          playsInline
+          ref={(el) => {
+            if (el && el.srcObject !== active.current?.stream)
+              el.srcObject = active.current?.stream || null;
+          }}
+        />
+      )}
       {error && (
         <div className="call-error" role="alert">
           <span>{error}</span>
@@ -612,10 +648,12 @@ export function CallProvider({
           </button>
         ) : (
           <section
-            className="call-overlay"
+            className={
+              "call-overlay" + (current.video ? " call-with-video" : "")
+            }
             role="dialog"
             aria-modal="true"
-            aria-label="Голосовой звонок"
+            aria-label={current.video ? "Видеозвонок" : "Голосовой звонок"}
           >
             <button
               className="call-minimize"
@@ -624,6 +662,7 @@ export function CallProvider({
             >
               <ChevronDown />
             </button>
+
             <div className="call-person">
               <Avatar user={peer} size={100} />
               <h2>
@@ -637,7 +676,8 @@ export function CallProvider({
             </div>
             {!relay && (
               <p className="call-network-note">
-                Некоторые мобильные сети пока не поддерживаются.
+                Для входящего вызова TELEJKA должна быть открыта. В некоторых
+                сетях прямое соединение недоступно.
               </p>
             )}
             {security && (
@@ -674,6 +714,21 @@ export function CallProvider({
               </button>
             )}
             <div className="call-controls">
+              {current.video && active.current?.stream && (
+                <button
+                  className="call-control"
+                  aria-pressed={cameraOff}
+                  onClick={() => {
+                    active.current?.stream
+                      ?.getVideoTracks()
+                      .forEach((t) => (t.enabled = cameraOff));
+                    setCameraOff(!cameraOff);
+                  }}
+                >
+                  {cameraOff ? <VideoOff /> : <Video />}
+                  <span>{cameraOff ? "Включить камеру" : "Камера"}</span>
+                </button>
+              )}
               {!active.current?.outgoing && current.state === "ringing" ? (
                 <>
                   <button
@@ -774,6 +829,33 @@ export function CallHistory({ onOpen }: { onOpen: (chatId: string) => void }) {
           <Phone size={18} />
         </button>
       ))}
+    </div>
+  );
+}
+
+export function CallButtons({ chat }: { chat: Chat }) {
+  const calls = useCalls();
+  if (chat.is_group) return null;
+  return (
+    <div className="chat-call-buttons">
+      <button
+        className="icon-button"
+        aria-label="Аудиозвонок"
+        title="Аудиозвонок · собеседник должен открыть TELEJKA"
+        disabled={calls.busy}
+        onClick={() => calls.start(chat)}
+      >
+        <Phone size={19} />
+      </button>
+      <button
+        className="icon-button"
+        aria-label="Видеозвонок"
+        title="Видеозвонок · собеседник должен открыть TELEJKA"
+        disabled={calls.busy}
+        onClick={() => calls.start(chat, true)}
+      >
+        <Video size={19} />
+      </button>
     </div>
   );
 }

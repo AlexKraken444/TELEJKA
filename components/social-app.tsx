@@ -1,4 +1,5 @@
 "use client";
+import {CallProvider,CallButtons} from "./calls";
 import {RichText} from "./rich-text";
 import {AIChat} from "./ai-chat";
 import {RoundRecorder} from "./round-recorder";
@@ -166,7 +167,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
     { key: "plus" as const, label: "Подписки", icon: Settings },
   ];
   return (
-    <OpenVideoContext.Provider value={(post,fileId)=>{setVideoStart({post,fileId});setTab("videos");window.scrollTo({top:0})}}><OnlineContext.Provider value={online}><StudioRuntime/><MobileNavigation tab={tab} onChange={setTab}/><div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
+    <CallProvider user={user}><OpenVideoContext.Provider value={(post,fileId)=>{setVideoStart({post,fileId});setTab("videos");window.scrollTo({top:0})}}><OnlineContext.Provider value={online}><StudioRuntime/><MobileNavigation tab={tab} onChange={setTab}/><div className={`app-shell ${tab === "chats" ? "is-chat" : ""} ${tab === "chats" && chatId ? "conversation-open" : ""}`}>
       <PushSync userId={user.id}/><DailyVisit userId={user.id} />
       <Notifications
         userId={user.id}
@@ -345,7 +346,7 @@ export function SocialApp({ initialUser }: { initialUser: User }) {
           </button>
         </aside>
       )}
-    </div></OnlineContext.Provider></OpenVideoContext.Provider>
+    </div></OnlineContext.Provider></OpenVideoContext.Provider></CallProvider>
   );
 }
 function ArrowRightIcon() {
@@ -1348,6 +1349,7 @@ function Conversation({
     <>
       <div className="conversation-heading">
         <ChatActions chat={chat} user={user} onDeleted={onDeleted} />
+        <CallButtons chat={chat}/>
         <button
           className="icon-button back-chat"
           onClick={onBack}
